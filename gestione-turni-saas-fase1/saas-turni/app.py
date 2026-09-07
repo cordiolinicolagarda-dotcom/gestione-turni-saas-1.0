@@ -28,7 +28,7 @@ import json
 import os
 from datetime import datetime, timezone
 
-from flask import Flask, jsonify, request, redirect, url_for, render_template, send_from_directory
+from flask import Flask, jsonify, request, redirect, url_for, render_template, send_from_directory, abort
 from flask_login import (
     LoginManager, UserMixin, login_user, logout_user,
     login_required, current_user,
@@ -201,6 +201,36 @@ def put_state():
     row.aggiornato_il = now_utc()
     db.session.commit()
     return jsonify({"version": row.version})
+
+
+# --- gestione aziende (onboarding pilota, dal browser) ---------------------
+# Alternativa a "flask create-tenant" per chi non ha accesso alla shell del
+# servizio (es. piano gratuito su Render, senza SSH/Shell). Protetta da un
+# token segreto nell'URL, letto dalla variabile d'ambiente SETUP_TOKEN: senza
+# il token giusto la pagina restituisce 404, come se non esistesse.
+@app.route("/setup/<token>", methods=["GET", "POST"])
+def setup_tenant(token):
+    expected = os.environ.get("SETUP_TOKEN")
+    if not expected or token != expected:
+        abort(404)
+
+    error = None
+    ok_message = None
+    if request.method == "POST":
+        nome = (request.form.get("nome") or "").strip()
+        email = (request.form.get("email") or "").strip().lower()
+        password = request.form.get("password") or ""
+        if not (nome and email and password):
+            error = "Compila tutti i campi."
+        elif Azienda.query.filter_by(email=email).first():
+            error = "Esiste già un'azienda con questa email."
+        else:
+            azienda = Azienda(nome=nome, email=email)
+            azienda.set_password(password)
+            db.session.add(azienda)
+            db.session.commit()
+            ok_message = f"Account creato per '{nome}' ({email}). Ora può accedere da /login."
+    return render_template("setup.html", error=error, ok_message=ok_message)
 
 
 # --- gestione aziende (onboarding pilota, da riga di comando) ---------------

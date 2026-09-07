@@ -233,6 +233,55 @@ def setup_tenant(token):
     return render_template("setup.html", error=error, ok_message=ok_message)
 
 
+# --- pannello amministratore (per te: verifica aziende, supporto remoto) ---
+# Protetto da un token segreto separato (ADMIN_TOKEN), sullo stesso schema
+# di /setup/<token>: senza il token giusto risponde 404. Da qui vedi tutte
+# le aziende registrate e puoi "accedere come" una di loro per aiutarla a
+# configurare l'app senza bisogno della sua password.
+
+def _admin_check(token):
+    expected = os.environ.get("ADMIN_TOKEN")
+    if not expected or token != expected:
+        abort(404)
+
+
+@app.route("/admin/<token>")
+def admin_panel(token):
+    _admin_check(token)
+    aziende = Azienda.query.order_by(Azienda.creato_il.desc()).all()
+    righe = []
+    for az in aziende:
+        stato = AppState.query.filter_by(azienda_id=az.id).first()
+        righe.append({
+            "azienda": az,
+            "ha_dati": stato is not None,
+            "versione": stato.version if stato else 0,
+            "aggiornato_il": stato.aggiornato_il if stato else None,
+        })
+    return render_template("admin.html", token=token, righe=righe)
+
+
+@app.route("/admin/<token>/accedi-come/<int:azienda_id>")
+def admin_impersonate(token, azienda_id):
+    _admin_check(token)
+    azienda = db.session.get(Azienda, azienda_id)
+    if not azienda:
+        abort(404)
+    login_user(azienda, remember=False)
+    return redirect(url_for("index"))
+
+
+@app.route("/admin/<token>/elimina/<int:azienda_id>", methods=["POST"])
+def admin_delete(token, azienda_id):
+    _admin_check(token)
+    azienda = db.session.get(Azienda, azienda_id)
+    if azienda:
+        AppState.query.filter_by(azienda_id=azienda.id).delete()
+        db.session.delete(azienda)
+        db.session.commit()
+    return redirect(url_for("admin_panel", token=token))
+
+
 # --- gestione aziende (onboarding pilota, da riga di comando) ---------------
 
 @app.cli.command("create-tenant")

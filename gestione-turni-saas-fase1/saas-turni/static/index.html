@@ -161,8 +161,20 @@ tbody tr:hover{background:var(--surface-2);}
 .week-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:18px;}
 .week-bar .spacer{flex:1;}
 
-.assenze-list{display:flex;flex-wrap:wrap;gap:10px;}
-.assenza-chip{display:flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:9px;padding:6px 10px;font-size:.82rem;background:var(--surface-2);}
+.assenze-table th, .assenze-table td{padding:4px 3px;text-align:center;white-space:nowrap;font-size:.78rem;}
+.assenze-table thead th{position:sticky;top:0;}
+.assenze-table .assenze-name-col{text-align:left;white-space:nowrap;font-weight:700;position:sticky;left:0;background:var(--surface);z-index:1;}
+.assenze-table thead th.assenze-name-col{background:var(--surface-2);z-index:2;}
+.assenze-table th.assenze-col-weekend, .assenze-table td.assenze-col-weekend{background:var(--surface-2);}
+.assenza-td{min-width:56px;}
+.assenza-cell{display:flex;flex-direction:column;align-items:center;gap:2px;}
+.assenza-cell select{width:100%;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--ink);font-size:.66rem;padding:3px 1px;text-align:center;}
+.assenza-cell.assenza-ferie select{background:var(--amber-soft);border-color:var(--accent);color:var(--accent-strong);font-weight:700;}
+.assenza-cell.assenza-malattia select{background:var(--danger-soft);border-color:var(--danger);color:var(--danger);font-weight:700;}
+.assenza-cell.assenza-rol select{background:var(--teal-soft);border-color:var(--teal);color:var(--teal);font-weight:700;}
+.assenza-cell.assenza-fine_contratto select{background:var(--wine-soft);border-color:var(--wine);color:var(--wine);font-weight:700;}
+.assenza-cell .assenza-ore{width:38px;margin-top:1px;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--ink);font-size:.62rem;padding:1px 2px;text-align:center;}
+.assenza-cell-terminato{color:var(--ink-muted);font-size:.72rem;opacity:.55;padding:5px 0;}
 
 .gap-banner{background:var(--danger-soft);border:1px solid var(--danger);color:var(--danger);border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:.86rem;}
 .gap-banner ul{margin:6px 0 0;padding-left:18px;}
@@ -223,6 +235,7 @@ footer.hint{margin-top:30px;color:var(--ink-muted);font-size:.78rem;text-align:c
 <a href="/logout" title="Esci dall'account" style="position:fixed;top:8px;right:10px;z-index:9999;font-size:12px;color:#8a8f98;text-decoration:none;background:#fff;padding:3px 8px;border-radius:6px;box-shadow:0 1px 2px rgba(0,0,0,.12);">Esci</a>
 <div id="app" lang="it"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 (function(){
 "use strict";
@@ -259,8 +272,27 @@ function defaultSettings(){
     oreGiornaliereBase:8,
     oreGiornaliereMax:10,
     paritaStraordinariEnabled:true,
-    paritaStraordinariFinestra:4
+    paritaStraordinariFinestra:4,
+    prioritaProfilo:"9days",
+    ordinePriorita:["cucina","banco","sala"]
   };
+}
+
+/* ---------- priorità reparti: preset e utilità ---------- */
+var DEPARTMENTS = ["cucina","banco","sala"];
+var DEPARTMENT_LABELS = {cucina:"Cucina", banco:"Banco", sala:"Sala"};
+var PRIORITY_PRESETS = {
+  "9days": {
+    label: "9 Days (predefinito): cucina → banco → sala",
+    ordinePriorita: ["cucina","banco","sala"],
+    giorniPicco: {lunedi:true,martedi:false,mercoledi:false,giovedi:false,venerdi:false,sabato:true,domenica:true},
+    giorniPriorita2: {lunedi:false,martedi:false,mercoledi:false,giovedi:false,venerdi:true,sabato:false,domenica:false}
+  }
+};
+function normalizePriorityOrder(order){
+  var out = (order||[]).filter(function(d){ return DEPARTMENTS.indexOf(d)!==-1; });
+  DEPARTMENTS.forEach(function(d){ if(out.indexOf(d)===-1) out.push(d); });
+  return out.slice(0,3);
 }
 
 function seedEmployees(){
@@ -311,6 +343,13 @@ function normalizeState(parsed){
   if(parsed.settings.oreGiornaliereMax===undefined) parsed.settings.oreGiornaliereMax = defaultSettings().oreGiornaliereMax;
   if(parsed.settings.paritaStraordinariEnabled===undefined) parsed.settings.paritaStraordinariEnabled = defaultSettings().paritaStraordinariEnabled;
   if(parsed.settings.paritaStraordinariFinestra===undefined) parsed.settings.paritaStraordinariFinestra = defaultSettings().paritaStraordinariFinestra;
+  if(parsed.settings.prioritaProfilo===undefined) parsed.settings.prioritaProfilo = defaultSettings().prioritaProfilo;
+  if(parsed.settings.ordinePriorita===undefined) parsed.settings.ordinePriorita = defaultSettings().ordinePriorita;
+  parsed.settings.ordinePriorita = normalizePriorityOrder(parsed.settings.ordinePriorita);
+  parsed.employees.forEach(function(e){
+    if(!e.assenze) e.assenze = {};
+    if(e.fineContrattoDal===undefined) e.fineContrattoDal = null;
+  });
   return parsed;
 }
 
@@ -325,6 +364,7 @@ function loadStateLocal(){
 var state = null;
 var activeTab = "turni";
 var currentWeek = mondayOf(isoDate(new Date()));
+var currentAssenzeMonth = isoDate(new Date()).slice(0,7);
 var editingEmpId = null;
 var USE_API = false;
 var apiVersion = 0;
@@ -449,35 +489,38 @@ var SLOT_ORDER = ["cuoco","banco_mattina","sala_mattina","banco_pomeriggio","sal
 var SLOT_LABELS = {cuoco:"Cuoco (7:00 → chiusura cucina)",banco_mattina:"Banco · mattina",sala_mattina:"Sala · mattina",banco_pomeriggio:"Banco · pomeriggio",sala_pomeriggio:"Sala · pomeriggio"};
 
 /* ---------- generazione automatica ---------- */
-/* Ordine di priorità quando il personale non basta a coprire tutto:
-   1) cucina sempre coperta (assegnata per prima, su tutti i giorni)
-   2) giorni di priorità 1 (di default lun/sab/dom): sala+banco, mattina e pomeriggio
-   3) giorni di priorità 2 (di default venerdì): sala+banco, mattina e pomeriggio
-   4) resto della settimana: prima il banco su tutti i giorni, poi la sala
-      (se proprio manca personale, si accetta la sala scoperta nei giorni feriali) */
-function buildFohTasks(settings){
+/* Ordine di priorità quando il personale non basta a coprire tutto: prima i
+   giorni di priorità 1 (di default lun/sab/dom), poi quelli di priorità 2
+   (di default venerdì), poi il resto della settimana; ad ogni livello, i
+   reparti (cucina/banco/sala) vengono coperti nell'ordine scelto dal cliente
+   in Impostazioni → Priorità (di default: cucina, poi banco, poi sala — la
+   configurazione "9 Days"). Nei giorni ordinari la sala è l'ultima a essere
+   eventualmente lasciata scoperta. */
+function buildTaskQueue(settings){
+  var order = normalizePriorityOrder(settings.ordinePriorita);
   var p1Days = DAYS.filter(function(d){ return !!settings.giorniPicco[d]; });
   var p2Days = DAYS.filter(function(d){ return !settings.giorniPicco[d] && !!settings.giorniPriorita2[d]; });
   var ordinaryDays = DAYS.filter(function(d){ return !settings.giorniPicco[d] && !settings.giorniPriorita2[d]; });
+  var tiers = [
+    {days:p1Days, livello:"critico"},
+    {days:p2Days, livello:"attenzione"},
+    {days:ordinaryDays, livello:"attenzione"}
+  ];
   var tasks = [];
-  p1Days.forEach(function(day){
-    getSlotsForDay(settings, day).filter(function(s){ return !s.isCuoco; }).forEach(function(s){
-      tasks.push({day:day, slot:s, livelloGap:"critico"});
-    });
-  });
-  p2Days.forEach(function(day){
-    getSlotsForDay(settings, day).filter(function(s){ return !s.isCuoco; }).forEach(function(s){
-      tasks.push({day:day, slot:s, livelloGap:"attenzione"});
-    });
-  });
-  ordinaryDays.forEach(function(day){
-    getSlotsForDay(settings, day).filter(function(s){ return !s.isCuoco && s.ruolo==="banco"; }).forEach(function(s){
-      tasks.push({day:day, slot:s, livelloGap:"attenzione"});
-    });
-  });
-  ordinaryDays.forEach(function(day){
-    getSlotsForDay(settings, day).filter(function(s){ return !s.isCuoco && s.ruolo==="sala"; }).forEach(function(s){
-      tasks.push({day:day, slot:s, livelloGap:"accettato"});
+  tiers.forEach(function(tier, tierIdx){
+    order.forEach(function(dept, deptIdx){
+      // nei giorni ordinari, il reparto con priorità più bassa (ultimo nell'ordine
+      // scelto) è quello che si accetta di lasciare scoperto per primo
+      var livello = (tierIdx===2 && deptIdx===order.length-1) ? "accettato" : tier.livello;
+      tier.days.forEach(function(day){
+        if(dept==="cucina"){
+          tasks.push({type:"cucina", day:day, livelloGap:livello});
+        } else {
+          getSlotsForDay(settings, day).filter(function(s){ return !s.isCuoco && s.ruolo===dept; }).forEach(function(s){
+            tasks.push({type:"foh", day:day, slot:s, livelloGap:livello});
+          });
+        }
+      });
     });
   });
   return tasks;
@@ -507,8 +550,7 @@ function rollingOvertimeMap(weekStart){
 function generateSchedule(weekStart){
   var settings = state.settings;
   var employees = state.employees;
-  var wk = state.weeks[weekStart] || {weekStart:weekStart, assenze:{}};
-  var assenze = wk.assenze || {};
+  var wk = state.weeks[weekStart] || {weekStart:weekStart};
 
   var hoursWorked = {}, turnoTaken = {}, dailyWorked = {}; // turnoTaken["empId|day_turno"]=true, dailyWorked["empId|day"]=ore
   employees.forEach(function(e){ hoursWorked[e.id]=0; });
@@ -522,7 +564,9 @@ function generateSchedule(weekStart){
     return dayHours(e.id, day) + hours <= (Number(settings.oreGiornaliereMax)||10) + 0.001;
   }
   function eligible(e, turno, day, ruoloOk){
-    if(assenze[e.id]) return false;
+    var dateStr = addDays(weekStart, DAYS.indexOf(day));
+    if(e.fineContrattoDal && dateStr >= e.fineContrattoDal) return false; // contratto terminato da quella data: mai più in turno
+    if(e.assenze && e.assenze[dateStr]) return false; // ferie/malattia/ROL quel giorno: escluso dalla generazione automatica
     if(!ruoloOk(e)) return false;
     var disp = e.disponibilita && e.disponibilita[day];
     if(!disp || !disp[turno]) return false;
@@ -561,51 +605,53 @@ function generateSchedule(weekStart){
     return candidates[0];
   }
 
-  // 1) cucina: sempre per prima, su tutti i giorni della settimana
-  DAYS.forEach(function(day){
-    var durCapo = durH(settings.cuocoInizio, settings.fineTurnoCuocoCapo);
-    var durRis = durH(settings.cuocoInizio, settings.fineTurnoCuocoRiserva);
-    var capoCands = employees.filter(function(e){ return eligible(e,"mattina",day,function(x){return x.ruoli.cuoco_capo;}) && capacityOk(e, durCapo) && dayCapOk(e, day, durCapo); });
-    var chosen = pick(capoCands,"mattina",durCapo), tipo = "capo";
-    if(!chosen){
-      var risCands = employees.filter(function(e){ return eligible(e,"mattina",day,function(x){return x.ruoli.cuoco_riserva;}) && capacityOk(e, durRis) && dayCapOk(e, day, durRis); });
-      chosen = pick(risCands,"mattina",durRis); tipo = "riserva";
-    }
-    if(chosen){
-      var fine = tipo==="capo" ? settings.fineTurnoCuocoCapo : settings.fineTurnoCuocoRiserva;
-      var chiusuraCucina = addMin(fine, -settings.minutiCucinaPrimaFineTurno);
-      var durCuoco = durH(settings.cuocoInizio, fine);
-      hoursWorked[chosen.id] += durCuoco;
-      addDayHours(chosen.id, day, durCuoco);
-      turnoTaken[chosen.id+"|"+day+"_mattina"] = true;
-      assign[day].cuoco = {empId:chosen.id, tipo:tipo, inizio:settings.cuocoInizio, fine:fine, chiusuraCucina:chiusuraCucina};
-    } else {
-      assign[day].cuoco = null;
-      gaps.push({day:day, key:"cuoco", livello:"critico", msg:"Nessun cuoco disponibile — "+DAY_LABELS[day]});
-    }
-  });
-
-  // 2) sala/banco: giorni di priorità 1, poi priorità 2, poi banco sul resto della settimana, poi sala sul resto
-  buildFohTasks(settings).forEach(function(task){
-    var day = task.day, slot = task.slot;
-    var dur = durH(slot.inizio, slot.fine);
-    var picked = [];
-    for(var i=0;i<slot.count;i++){
-      var cands = employees.filter(function(e){
-        if(picked.indexOf(e.id)!==-1) return false;
-        return eligible(e, slot.turno, day, function(x){ return !!x.ruoli[slot.ruolo]; }) && capacityOk(e, dur) && dayCapOk(e, day, dur);
-      });
-      var ch = pick(cands, slot.turno, dur);
-      if(ch){
-        picked.push(ch.id);
-        hoursWorked[ch.id] += dur;
-        addDayHours(ch.id, day, dur);
-        turnoTaken[ch.id+"|"+day+"_"+slot.turno] = true;
-      } else {
-        gaps.push({day:day, key:slot.key, livello:task.livelloGap, msg:"Manca "+slot.label.toLowerCase()+" · "+(slot.turno==="mattina"?"mattina":"pomeriggio")+" — "+DAY_LABELS[day]});
+  // cucina + banco/sala: un'unica coda di assegnazione, ordinata per giorni di
+  // priorità (1, poi 2, poi resto della settimana) e, dentro ogni livello, per
+  // l'ordine dei reparti scelto in Impostazioni → Priorità
+  buildTaskQueue(settings).forEach(function(task){
+    var day = task.day;
+    if(task.type==="cucina"){
+      var durCapo = durH(settings.cuocoInizio, settings.fineTurnoCuocoCapo);
+      var durRis = durH(settings.cuocoInizio, settings.fineTurnoCuocoRiserva);
+      var capoCands = employees.filter(function(e){ return eligible(e,"mattina",day,function(x){return x.ruoli.cuoco_capo;}) && capacityOk(e, durCapo) && dayCapOk(e, day, durCapo); });
+      var chosen = pick(capoCands,"mattina",durCapo), tipo = "capo";
+      if(!chosen){
+        var risCands = employees.filter(function(e){ return eligible(e,"mattina",day,function(x){return x.ruoli.cuoco_riserva;}) && capacityOk(e, durRis) && dayCapOk(e, day, durRis); });
+        chosen = pick(risCands,"mattina",durRis); tipo = "riserva";
       }
+      if(chosen){
+        var fine = tipo==="capo" ? settings.fineTurnoCuocoCapo : settings.fineTurnoCuocoRiserva;
+        var chiusuraCucina = addMin(fine, -settings.minutiCucinaPrimaFineTurno);
+        var durCuoco = durH(settings.cuocoInizio, fine);
+        hoursWorked[chosen.id] += durCuoco;
+        addDayHours(chosen.id, day, durCuoco);
+        turnoTaken[chosen.id+"|"+day+"_mattina"] = true;
+        assign[day].cuoco = {empId:chosen.id, tipo:tipo, inizio:settings.cuocoInizio, fine:fine, chiusuraCucina:chiusuraCucina};
+      } else {
+        assign[day].cuoco = null;
+        gaps.push({day:day, key:"cuoco", livello:task.livelloGap, msg:"Nessun cuoco disponibile — "+DAY_LABELS[day]});
+      }
+    } else {
+      var slot = task.slot;
+      var dur = durH(slot.inizio, slot.fine);
+      var picked = [];
+      for(var i=0;i<slot.count;i++){
+        var cands = employees.filter(function(e){
+          if(picked.indexOf(e.id)!==-1) return false;
+          return eligible(e, slot.turno, day, function(x){ return !!x.ruoli[slot.ruolo]; }) && capacityOk(e, dur) && dayCapOk(e, day, dur);
+        });
+        var ch = pick(cands, slot.turno, dur);
+        if(ch){
+          picked.push(ch.id);
+          hoursWorked[ch.id] += dur;
+          addDayHours(ch.id, day, dur);
+          turnoTaken[ch.id+"|"+day+"_"+slot.turno] = true;
+        } else {
+          gaps.push({day:day, key:slot.key, livello:task.livelloGap, msg:"Manca "+slot.label.toLowerCase()+" · "+(slot.turno==="mattina"?"mattina":"pomeriggio")+" — "+DAY_LABELS[day]});
+        }
+      }
+      assign[day][slot.key] = picked.map(function(id){ return {empId:id, inizio:slot.inizio, fine:slot.fine}; });
     }
-    assign[day][slot.key] = picked.map(function(id){ return {empId:id, inizio:slot.inizio, fine:slot.fine}; });
   });
 
   // 3) chi non raggiunge le ore di contratto: allunga uno dei suoi turni all'indietro,
@@ -682,6 +728,7 @@ function render(){
     tabsHtml() +
     '<div class="tab-panel'+(activeTab==="impostazioni"?" active":"")+'" id="panel-impostazioni">'+renderImpostazioni()+'</div>'+
     '<div class="tab-panel'+(activeTab==="personale"?" active":"")+'" id="panel-personale">'+renderPersonale()+'</div>'+
+    '<div class="tab-panel'+(activeTab==="assenze"?" active":"")+'" id="panel-assenze">'+renderAssenze()+'</div>'+
     '<div class="tab-panel'+(activeTab==="turni"?" active":"")+'" id="panel-turni">'+renderTurni()+'</div>'+
     '<footer class="hint no-print">'+(USE_API?'Dati condivisi in rete locale su questo computer server. “Esporta dati” resta utile come backup manuale.':'Dati salvati solo in questo browser. Usa “Esporta dati” per un backup prima di cambiare computer o svuotare la cache.')+'</footer>';
   wireEvents();
@@ -696,7 +743,7 @@ function heroHtml(){
     '</div>';
 }
 function tabsHtml(){
-  var tabs = [["turni","Turni"],["personale","Personale"],["impostazioni","Impostazioni"]];
+  var tabs = [["turni","Turni"],["personale","Personale"],["assenze","Assenze"],["impostazioni","Impostazioni"]];
   return '<div class="tabs no-print">'+tabs.map(function(t){
     return '<button class="tab-btn'+(activeTab===t[0]?" active":"")+'" data-tab="'+t[0]+'">'+t[1]+'</button>';
   }).join("")+'</div>';
@@ -719,17 +766,33 @@ function renderImpostazioni(){
     return '<label class="check"><input type="checkbox" data-priorita2-day="'+d+'" '+(s.giorniPriorita2[d]?"checked":"")+'>'+DAY_LABELS[d]+'</label>';
   }).join("");
 
+  var profilo = s.prioritaProfilo || "9days";
+  var isCustom = profilo === "personalizza";
+  var ordine = normalizePriorityOrder(s.ordinePriorita);
+  var ordineLabel = ordine.map(function(d){ return DEPARTMENT_LABELS[d]; }).join(" → ");
+  var profiloOptions = Object.keys(PRIORITY_PRESETS).map(function(k){
+    return '<option value="'+k+'"'+(profilo===k?" selected":"")+'>'+PRIORITY_PRESETS[k].label+'</option>';
+  }).join("") + '<option value="personalizza"'+(isCustom?" selected":"")+'>Personalizza priorità</option>';
+  var ordineSelects = [0,1,2].map(function(i){
+    var opts = DEPARTMENTS.map(function(d){ return '<option value="'+d+'"'+(ordine[i]===d?" selected":"")+'>'+DEPARTMENT_LABELS[d]+'</option>'; }).join("");
+    return '<label class="field">Priorità '+(i+1)+'ª<select data-ordine-priorita="'+i+'">'+opts+'</select></label>';
+  }).join("");
+  var p1DaysLabel = DAYS.filter(function(d){ return s.giorniPicco[d]; }).map(function(d){ return DAY_LABELS[d]; }).join(", ") || "nessuno";
+  var p2DaysLabel = DAYS.filter(function(d){ return s.giorniPriorita2[d]; }).map(function(d){ return DAY_LABELS[d]; }).join(", ") || "nessuno";
+
   return ''+
   '<div class="card" style="border-color:var(--accent);"><h2>Priorità quando il personale non basta</h2>'+
-    '<div class="card-desc">Quando non c’è abbastanza personale per coprire tutti i turni, il generatore rispetta sempre questo ordine:</div>'+
-    '<ol style="margin:0;padding-left:20px;font-size:.86rem;display:flex;flex-direction:column;gap:6px;">'+
-      '<li><strong>Cucina sempre coperta</strong> — il cuoco (capo o riserva) viene assegnato per primo, su tutti i giorni.</li>'+
-      '<li><strong>Giorni di priorità 1</strong> (di default Lun, Sab, Dom — gli stessi “giorni di massima affluenza” qui sotto): banco + sala coperti sia a mattina che a pomeriggio.</li>'+
-      '<li><strong>Giorni di priorità 2</strong> (di default Venerdì, configurabile qui sotto): stessa copertura completa, ma solo dopo aver garantito i giorni di priorità 1.</li>'+
-      '<li><strong>Resto della settimana</strong>: si copre prima il banco su tutti i giorni rimasti; se il personale non basta, si accetta di lasciare scoperta la sala nei giorni feriali piuttosto che scoprire cucina o banco.</li>'+
-    '</ol>'+
-    '<div class="card-desc" style="margin-top:12px;margin-bottom:6px;">Giorni di priorità 2:</div>'+
-    '<div style="display:flex;gap:14px;flex-wrap:wrap;">'+giorniPriorita2Boxes+'</div>'+
+    '<div class="card-desc">Quando non c’è abbastanza personale per coprire tutti i turni, decidi tu quale reparto proteggere per primo tra cucina, banco e sala. Scegli una configurazione pronta oppure personalizzala.</div>'+
+    '<label class="field" style="max-width:380px;">Configurazione<select id="pp-profilo-select">'+profiloOptions+'</select></label>'+
+    (isCustom ?
+      ('<div class="card-desc" style="margin-top:14px;margin-bottom:6px;">Ordine dei reparti da proteggere per primi:</div>'+
+       '<div class="grid cols-3">'+ordineSelects+'</div>'+
+       '<div class="card-desc" style="margin-top:14px;margin-bottom:6px;">Giorni di priorità 1 (copertura completa di tutti i reparti sia a mattina che a pomeriggio) — coincidono con i giorni di picco impostati più sotto nella card “Giorni di massima affluenza”: <strong>'+p1DaysLabel+'</strong>.</div>'+
+       '<div class="card-desc" style="margin-bottom:6px;">Giorni di priorità 2 (stessa copertura completa, subito dopo i giorni di priorità 1):</div>'+
+       '<div style="display:flex;gap:14px;flex-wrap:wrap;">'+giorniPriorita2Boxes+'</div>')
+      :
+      ('<div class="card-desc" style="margin-top:14px;">Con questa configurazione, quando manca personale il generatore protegge nell’ordine: <strong>'+ordineLabel+'</strong>. Giorni di priorità 1 (copertura completa): <strong>'+p1DaysLabel+'</strong>. Giorni di priorità 2: <strong>'+p2DaysLabel+'</strong>. Per modificare l’ordine dei reparti o questi giorni, scegli “Personalizza priorità”.</div>')
+    )+
   '</div>'+
 
   '<div class="card"><h2>Ore massime al giorno</h2><div class="card-desc">Nessun dipendente viene messo in turno oltre questo limite in una singola giornata, nemmeno per allungare un turno o coprire un buco — vale anche quando si allunga un turno per raggiungere le ore di contratto (vedi scheda Turni).</div>'+
@@ -831,12 +894,16 @@ function renderPersonale(){
       html += '<div class="emp-row"><div class="emp-head">'+
         '<div><div class="emp-name">'+escapeHtml(e.nome)+'</div><div class="emp-roles">'+ruoloPills(e)+'</div></div>'+
         '<div class="btn-row">'+
+          contractTypePill(e)+
           (e.tipoContratto==="chiamata"?
-            '<span class="pill pill-teal">a chiamata · fino a '+e.oreContratto+'+'+e.straordinario+'h</span>' :
+            '<span class="pill pill-teal">fino a '+e.oreContratto+'+'+e.straordinario+'h</span>' :
             '<span class="pill" style="background:var(--surface-2);color:var(--ink-muted)">'+e.oreContratto+'h contratto · +'+e.straordinario+'h straord.</span>'
           )+
           '<span class="pill" style="background:var(--surface-2);color:var(--ink-muted)">pref. '+labelTurno(e.turnoPreferito)+'</span>'+
           (e.spezzatiOk?'<span class="pill pill-warning">spezzati OK</span>':'')+
+          (e.fineContrattoDal?
+            ('<span class="pill pill-danger">contratto terminato dal '+fmtDateLabel(e.fineContrattoDal)+'</span>'+
+             '<button class="btn btn-sm" data-clear-fine-contratto="'+e.id+'">Riattiva</button>') : '')+
           '<button class="btn btn-sm" data-edit-emp="'+e.id+'">Modifica</button>'+
           '<button class="btn btn-sm btn-danger" data-del-emp="'+e.id+'">Elimina</button>'+
         '</div>'+
@@ -846,10 +913,15 @@ function renderPersonale(){
   return html;
 }
 function labelTurno(t){ return t==="mattina"?"mattina":t==="pomeriggio"?"pomeriggio":"indifferente"; }
+function contractTypePill(e){
+  if(e.tipoContratto==="part_time") return '<span class="pill pill-amber">Part time</span>';
+  if(e.tipoContratto==="chiamata") return '<span class="pill pill-teal">A chiamata</span>';
+  return '<span class="pill" style="background:var(--surface-2);color:var(--ink-muted)">Full time</span>';
+}
 
 function renderEmpForm(id){
   var isNew = id==="__new__";
-  var e = isNew ? {id:uid(),nome:"",ruoli:{cuoco_capo:false,cuoco_riserva:false,banco:false,sala:false},oreContratto:30,straordinario:4,turnoPreferito:"indifferente",spezzatiOk:false,tipoContratto:"fisso",disponibilita:defaultAvail()} : empById(id);
+  var e = isNew ? {id:uid(),nome:"",ruoli:{cuoco_capo:false,cuoco_riserva:false,banco:false,sala:false},oreContratto:30,straordinario:4,turnoPreferito:"indifferente",spezzatiOk:false,tipoContratto:"fisso",disponibilita:defaultAvail(),assenze:{},fineContrattoDal:null} : empById(id);
   var roleKeys = [["cuoco_capo","Cuoco capo"],["cuoco_riserva","Cuoco riserva"],["banco","Banco"],["sala","Sala/Cameriere"]];
   var roleBoxes = roleKeys.map(function(r){
     return '<label class="check"><input type="checkbox" name="ruolo" value="'+r[0]+'" '+(e.ruoli[r[0]]?"checked":"")+'>'+r[1]+'</label>';
@@ -869,8 +941,12 @@ function renderEmpForm(id){
       '<label class="field">Turno preferito<select id="ef-pref"><option value="indifferente"'+(e.turnoPreferito==="indifferente"?" selected":"")+'>Indifferente</option><option value="mattina"'+(e.turnoPreferito==="mattina"?" selected":"")+'>Mattina</option><option value="pomeriggio"'+(e.turnoPreferito==="pomeriggio"?" selected":"")+'>Pomeriggio</option></select></label>'+
     '</div>'+
     '<div class="grid cols-2" style="margin-top:12px;">'+
-      '<label class="field">Tipo contratto<select id="ef-tipo"><option value="fisso"'+(e.tipoContratto==="chiamata"?"":" selected")+'>Ore fisse</option><option value="chiamata"'+(e.tipoContratto==="chiamata"?" selected":"")+'>A chiamata</option></select></label>'+
-      '<div class="field" style="justify-content:flex-end;font-weight:500;color:var(--ink-muted);">A chiamata: nessuna soglia minima da rispettare; viene usato solo per coprire i buchi rimasti dopo chi ha un contratto a ore fisse.</div>'+
+      '<label class="field">Tipo contratto<select id="ef-tipo">'+
+        '<option value="fisso"'+(e.tipoContratto==="fisso"||!e.tipoContratto?" selected":"")+'>Full time</option>'+
+        '<option value="part_time"'+(e.tipoContratto==="part_time"?" selected":"")+'>Part time</option>'+
+        '<option value="chiamata"'+(e.tipoContratto==="chiamata"?" selected":"")+'>A chiamata</option>'+
+      '</select></label>'+
+      '<div class="field" style="justify-content:flex-end;font-weight:500;color:var(--ink-muted);">A chiamata: nessuna soglia minima da rispettare; viene usato solo per coprire i buchi rimasti dopo chi ha un contratto a ore fisse (full time o part time).</div>'+
     '</div>'+
     '<div class="grid cols-2" style="margin-top:12px;">'+
       '<label class="field" id="ef-ore-label">'+(e.tipoContratto==="chiamata"?"Tetto ore settimanali (facoltativo)":"Ore a contratto / settimana")+'<input type="number" min="0" id="ef-ore" value="'+e.oreContratto+'"></label>'+
@@ -902,15 +978,6 @@ function renderTurni(){
 
   html += '<div class="print-only-header"><h2>'+escapeHtml(state.settings.barName)+' — turni '+fmtDateLabel(currentWeek)+' – '+fmtDateLabel(addDays(currentWeek,6))+'</h2></div>';
 
-  html += '<div class="card no-print" id="assenze-card"><h2>Assenze per la settimana del '+fmtDateLabel(currentWeek)+' – '+fmtDateLabel(addDays(currentWeek,6))+'</h2>'+
-    '<div class="card-desc">Spunta chi è malato o assente per l’intera settimana: verrà escluso automaticamente dalla generazione.</div>'+
-    '<div class="assenze-list">'+
-      (state.employees.length? state.employees.map(function(e){
-        var checked = wk && wk.assenze && wk.assenze[e.id];
-        return '<label class="assenza-chip"><input type="checkbox" data-assenza="'+e.id+'" '+(checked?"checked":"")+'>'+escapeHtml(e.nome)+'</label>';
-      }).join("") : '<span class="empty-note" style="border:none;padding:0;">Aggiungi prima il personale nella scheda “Personale”.</span>')+
-    '</div></div>';
-
   if(!state.employees.length){
     return html + '<div class="empty-note">Nessun dipendente configurato: vai su “Personale” per aggiungerne.</div>';
   }
@@ -923,12 +990,12 @@ function renderTurni(){
     var daPrisolvere = wk.gaps.filter(function(g){ return g.livello!=="accettato"; });
     var accettati = wk.gaps.filter(function(g){ return g.livello==="accettato"; });
     if(daPrisolvere.length){
-      html += '<div class="gap-banner hide-in-planner-print"><strong>'+daPrisolvere.length+' turno/i scoperto/i da risolvere</strong> — cucina e i giorni di priorità 1 e 2 (vedi Impostazioni) vengono coperti per primi; qui nessun dipendente idoneo era disponibile entro il monte-ore tollerato o il limite di ore giornaliere:<ul>'+
+      html += '<div class="gap-banner hide-in-planner-print"><strong>'+daPrisolvere.length+' turno/i scoperto/i da risolvere</strong> — i reparti e i giorni di priorità (vedi Impostazioni → Priorità) vengono coperti per primi; qui nessun dipendente idoneo era disponibile entro il monte-ore tollerato o il limite di ore giornaliere:<ul>'+
         daPrisolvere.map(function(g){ return '<li>'+(g.livello==="critico"?"🔴 ":"🟠 ")+escapeHtml(g.msg)+'</li>'; }).join("")+'</ul></div>';
     }
     if(accettati.length){
-      html += '<div class="card hide-in-planner-print" style="background:var(--surface-2);border-style:dashed;"><h2 style="font-size:.95rem;">'+accettati.length+' turno/i di sala lasciati scoperti nei giorni feriali</h2>'+
-        '<div class="card-desc" style="margin-bottom:8px;">Per le priorità impostate, sui giorni non di punta si accetta di scoprire la sala pur di garantire cucina e banco:</div>'+
+      html += '<div class="card hide-in-planner-print" style="background:var(--surface-2);border-style:dashed;"><h2 style="font-size:.95rem;">'+accettati.length+' turno/i lasciati scoperti nei giorni non di punta</h2>'+
+        '<div class="card-desc" style="margin-bottom:8px;">Per le priorità impostate, sui giorni non di punta si accetta di scoprire il reparto a più bassa priorità pur di garantire gli altri:</div>'+
         '<ul style="margin:0;padding-left:18px;font-size:.84rem;color:var(--ink-muted);">'+accettati.map(function(g){ return '<li>'+escapeHtml(g.msg)+'</li>'; }).join("")+'</ul></div>';
     }
   }
@@ -1046,6 +1113,134 @@ function renderOreSettimanali(wk, weekStart){
     '<div class="table-wrap"><table><thead><tr><th>Dipendente</th><th>Ore assegnate</th><th>Contratto</th><th>Straord./tetto</th>'+rollHeader+'<th>Stato</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
 }
 
+/* ---------- ASSENZE (ferie, malattie, ROL, fine contratto) ---------- */
+function capitalize(s){ return s ? s.charAt(0).toUpperCase()+s.slice(1) : s; }
+function monthBounds(monthStr){
+  var y = Number(monthStr.slice(0,4)), m = Number(monthStr.slice(5,7));
+  var first = new Date(y, m-1, 1);
+  var last = new Date(y, m, 0);
+  return {first: isoDate(first), last: isoDate(last), daysInMonth: last.getDate(), year:y, month:m};
+}
+function daysOfMonth(monthStr){
+  var b = monthBounds(monthStr);
+  var out = [];
+  for(var d=1; d<=b.daysInMonth; d++){ out.push(isoDate(new Date(b.year, b.month-1, d))); }
+  return out;
+}
+function weekdayShortForDate(dateStr){
+  var map = ["Dom","Lun","Mar","Mer","Gio","Ven","Sab"];
+  return map[new Date(dateStr+"T00:00:00").getDay()];
+}
+function shiftMonth(monthStr, delta){
+  var y = Number(monthStr.slice(0,4)), m = Number(monthStr.slice(5,7));
+  var d = new Date(y, m-1+delta, 1);
+  return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2);
+}
+function computeAssenzeSummary(dalStr, alStr){
+  return state.employees.map(function(e){
+    var ferie=0, malattia=0, rolOre=0;
+    var assenze = e.assenze || {};
+    Object.keys(assenze).forEach(function(d){
+      if(d < dalStr || d > alStr) return;
+      var rec = assenze[d];
+      if(rec.tipo==="ferie") ferie++;
+      else if(rec.tipo==="malattia") malattia++;
+      else if(rec.tipo==="rol") rolOre += Number(rec.ore)||0;
+    });
+    return {emp:e, ferie:ferie, malattia:malattia, rolOre:rolOre};
+  });
+}
+function renderAssenzaCell(emp, dateStr){
+  if(emp.fineContrattoDal && dateStr > emp.fineContrattoDal){
+    return '<div class="assenza-cell-terminato" title="Contratto terminato dal '+fmtDateLabel(emp.fineContrattoDal)+'">—</div>';
+  }
+  var isFineContrattoDay = emp.fineContrattoDal === dateStr;
+  var rec = (emp.assenze && emp.assenze[dateStr]) || null;
+  var tipo = isFineContrattoDay ? "fine_contratto" : (rec ? rec.tipo : "");
+  var opts = [
+    '<option value=""'+(!tipo?" selected":"")+'>—</option>',
+    '<option value="ferie"'+(tipo==="ferie"?" selected":"")+'>Ferie</option>',
+    '<option value="malattia"'+(tipo==="malattia"?" selected":"")+'>Malattia</option>',
+    '<option value="rol"'+(tipo==="rol"?" selected":"")+'>ROL</option>',
+    '<option value="fine_contratto"'+(tipo==="fine_contratto"?" selected":"")+'>Fine contratto da qui</option>'
+  ].join("");
+  var cls = "assenza-cell"+(tipo?(" assenza-"+tipo):"");
+  var oreInput = tipo==="rol" ? '<input type="number" min="0" step="0.5" class="assenza-ore" data-assenza-ore="'+emp.id+'|'+dateStr+'" value="'+((rec&&rec.ore)||0)+'" title="Ore ROL">' : '';
+  return '<div class="'+cls+'"><select data-assenza-cell="'+emp.id+'|'+dateStr+'">'+opts+'</select>'+oreInput+'</div>';
+}
+function renderAssenzeRiepilogoRows(dal, al){
+  return computeAssenzeSummary(dal, al).map(function(r){
+    return '<tr><td>'+escapeHtml(r.emp.nome)+'</td><td class="mono">'+r.ferie+'</td><td class="mono">'+r.malattia+'</td><td class="mono">'+(r.rolOre?r.rolOre.toFixed(1):"0")+' h</td>'+
+      (r.emp.fineContrattoDal ? '<td><span class="pill pill-danger">dal '+fmtDateLabel(r.emp.fineContrattoDal)+'</span></td>' : '<td>—</td>')+
+    '</tr>';
+  }).join("");
+}
+function renderAssenzeRiepilogo(bounds){
+  var dalDefault = bounds.first, alDefault = bounds.last;
+  return '<div class="card hide-in-planner-print"><h2>Riepilogo del periodo</h2>'+
+    '<div class="card-desc">Utile per comunicare i dati al consulente del lavoro. Il periodo segue di default il mese visualizzato sopra: cambialo se ti serve un altro intervallo.</div>'+
+    '<div class="btn-row" style="margin-bottom:14px;flex-wrap:wrap;align-items:flex-end;">'+
+      '<label class="field" style="flex:0 0 auto;">Dal<input type="date" id="assenze-export-dal" value="'+dalDefault+'"></label>'+
+      '<label class="field" style="flex:0 0 auto;">Al<input type="date" id="assenze-export-al" value="'+alDefault+'"></label>'+
+      '<button class="btn btn-sm" id="btn-riepilogo-aggiorna">Aggiorna riepilogo</button>'+
+      '<button class="btn btn-primary btn-sm" id="btn-assenze-export">⭳ Esporta in Excel</button>'+
+    '</div>'+
+    '<div class="table-wrap"><table><thead><tr><th>Dipendente</th><th>Ferie (giorni)</th><th>Malattia (giorni)</th><th>ROL (ore)</th><th>Fine contratto</th></tr></thead><tbody id="riepilogo-tbody">'+renderAssenzeRiepilogoRows(dalDefault, alDefault)+'</tbody></table></div>'+
+  '</div>';
+}
+function renderAssenze(){
+  if(!state.employees.length){
+    return '<div class="empty-note">Nessun dipendente configurato: vai su “Personale” per aggiungerne.</div>';
+  }
+  var monthStr = currentAssenzeMonth;
+  var bounds = monthBounds(monthStr);
+  var days = daysOfMonth(monthStr);
+  var monthLabel = capitalize(new Date(bounds.year, bounds.month-1, 1).toLocaleDateString("it-IT",{month:"long",year:"numeric"}));
+
+  var html = '<div class="week-bar no-print">'+
+    '<button class="btn btn-sm" id="assenze-mese-prev">← Mese prec.</button>'+
+    '<input type="month" id="assenze-mese-pick" value="'+monthStr+'">'+
+    '<button class="btn btn-sm" id="assenze-mese-next">Mese succ. →</button>'+
+  '</div>';
+
+  html += '<div class="card"><h2>Ferie, malattie, ROL e fine contratto — '+monthLabel+'</h2>'+
+    '<div class="card-desc">Clicca su una casella per segnare ferie, malattia, ROL (indicando le ore) o la fine del contratto per quel dipendente da quel giorno in poi. Un giorno segnato come ferie, malattia o ROL esclude automaticamente quel dipendente dalla generazione automatica dei turni per quel giorno (resta possibile assegnarlo comunque a mano dalla scheda Turni, se necessario); dopo la fine contratto il dipendente non viene più conteggiato nei turni.</div>'+
+    '<div class="table-wrap"><table class="assenze-table"><thead><tr><th class="assenze-name-col">Dipendente</th>'+
+      days.map(function(d){
+        var dow = new Date(d+"T00:00:00").getDay();
+        var isWknd = dow===0 || dow===6;
+        return '<th class="'+(isWknd?"assenze-col-weekend":"")+'">'+Number(d.slice(8,10))+'<div style="font-weight:400;text-transform:none;font-size:.62rem;">'+weekdayShortForDate(d)+'</div></th>';
+      }).join("")+
+    '</tr></thead><tbody>'+
+    state.employees.map(function(e){
+      return '<tr><td class="assenze-name-col">'+escapeHtml(e.nome)+'</td>'+
+        days.map(function(d){
+          var dow = new Date(d+"T00:00:00").getDay();
+          var isWknd = dow===0 || dow===6;
+          return '<td class="assenza-td'+(isWknd?" assenze-col-weekend":"")+'">'+renderAssenzaCell(e,d)+'</td>';
+        }).join("")+
+      '</tr>';
+    }).join("")+
+    '</tbody></table></div>'+
+  '</div>';
+
+  html += renderAssenzeRiepilogo(bounds);
+  return html;
+}
+function escapeFileName(s){ return String(s||"attivita").replace(/[^a-z0-9]+/gi,"_").replace(/^_+|_+$/g,"")||"attivita"; }
+function exportAssenzeExcel(dal, al){
+  if(typeof XLSX === "undefined"){ alert("Libreria di esportazione non disponibile al momento (serve una connessione a internet per caricarla). Riprova tra poco."); return; }
+  var aoa = [["Dipendente","Ferie (giorni)","Malattia (giorni)","ROL (ore)","Fine contratto"]];
+  computeAssenzeSummary(dal, al).forEach(function(r){
+    aoa.push([r.emp.nome, r.ferie, r.malattia, r.rolOre, r.emp.fineContrattoDal ? fmtDateLabel(r.emp.fineContrattoDal) : ""]);
+  });
+  var ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws["!cols"] = [{wch:24},{wch:14},{wch:15},{wch:10},{wch:16}];
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Riepilogo assenze");
+  XLSX.writeFile(wb, "assenze_"+escapeFileName(state.settings.barName)+"_"+dal+"_"+al+".xlsx");
+}
+
 /* ---------- eventi ---------- */
 function wireEvents(){
   document.querySelectorAll("[data-tab]").forEach(function(b){
@@ -1076,6 +1271,35 @@ function wireEvents(){
     inp.addEventListener("change", function(){
       state.settings.giorniPriorita2[inp.getAttribute("data-priorita2-day")] = inp.checked;
       saveState();
+    });
+  });
+  var profiloSel = document.getElementById("pp-profilo-select");
+  if(profiloSel) profiloSel.addEventListener("change", function(){
+    var nuovo = profiloSel.value;
+    var precedente = state.settings.prioritaProfilo || "9days";
+    if(nuovo!=="personalizza" && PRIORITY_PRESETS[nuovo]){
+      if(precedente==="personalizza" && !confirm("Applicare la configurazione \""+PRIORITY_PRESETS[nuovo].label+"\"? Questo sovrascriverà l'ordine di priorità personalizzato e i giorni di priorità 1/2 con quelli di questa configurazione.")){
+        profiloSel.value = precedente;
+        return;
+      }
+      var preset = PRIORITY_PRESETS[nuovo];
+      var cloneDayMap = function(m){ var o={}; DAYS.forEach(function(d){ o[d]=!!m[d]; }); return o; };
+      state.settings.ordinePriorita = preset.ordinePriorita.slice();
+      state.settings.giorniPicco = cloneDayMap(preset.giorniPicco);
+      state.settings.giorniPriorita2 = cloneDayMap(preset.giorniPriorita2);
+    }
+    state.settings.prioritaProfilo = nuovo;
+    saveState(); render();
+  });
+  document.querySelectorAll("[data-ordine-priorita]").forEach(function(sel){
+    sel.addEventListener("change", function(){
+      var i = Number(sel.getAttribute("data-ordine-priorita"));
+      var order = normalizePriorityOrder(state.settings.ordinePriorita);
+      var newDept = sel.value;
+      var j = order.indexOf(newDept);
+      if(j!==-1 && j!==i){ var tmp = order[i]; order[i] = order[j]; order[j] = tmp; }
+      state.settings.ordinePriorita = order;
+      saveState(); render();
     });
   });
   var resetBtn = document.getElementById("btn-reset-settings");
@@ -1139,10 +1363,19 @@ function wireEvents(){
       }
     });
   });
+  document.querySelectorAll("[data-clear-fine-contratto]").forEach(function(b){
+    b.addEventListener("click", function(){
+      var emp = empById(b.getAttribute("data-clear-fine-contratto"));
+      if(emp && confirm("Annullare la fine contratto di "+emp.nome+"? Tornerà disponibile per la generazione dei turni.")){
+        emp.fineContrattoDal = null; saveState(); render();
+      }
+    });
+  });
   var saveEmpBtn = document.getElementById("btn-save-emp");
   if(saveEmpBtn) saveEmpBtn.addEventListener("click", function(){
     var form = document.getElementById("emp-form");
     var id = form.getAttribute("data-emp-id");
+    var original = id!=="__new__" ? empById(id) : null;
     var nome = document.getElementById("ef-nome").value.trim();
     if(!nome){ alert("Inserisci un nome."); return; }
     var ruoli = {cuoco_capo:false,cuoco_riserva:false,banco:false,sala:false};
@@ -1164,7 +1397,9 @@ function wireEvents(){
       turnoPreferito: document.getElementById("ef-pref").value,
       tipoContratto: document.getElementById("ef-tipo").value,
       spezzatiOk: document.getElementById("ef-spezzati").checked,
-      disponibilita: disponibilita
+      disponibilita: disponibilita,
+      assenze: original ? (original.assenze||{}) : {},
+      fineContrattoDal: original ? (original.fineContrattoDal||null) : null
     };
     var idx = state.employees.findIndex(function(e){return e.id===emp.id;});
     if(idx===-1) state.employees.push(emp); else state.employees[idx]=emp;
@@ -1186,15 +1421,6 @@ function wireEvents(){
   if(weekPrev) weekPrev.addEventListener("click", function(){ currentWeek = addDays(currentWeek,-7); render(); });
   var weekNext = document.getElementById("week-next");
   if(weekNext) weekNext.addEventListener("click", function(){ currentWeek = addDays(currentWeek,7); render(); });
-  document.querySelectorAll("[data-assenza]").forEach(function(cb){
-    cb.addEventListener("change", function(){
-      var wk = state.weeks[currentWeek] || {weekStart:currentWeek, assenze:{}};
-      wk.assenze = wk.assenze || {};
-      wk.assenze[cb.getAttribute("data-assenza")] = cb.checked;
-      state.weeks[currentWeek] = wk;
-      saveState();
-    });
-  });
   var genBtn = document.getElementById("btn-generate");
   if(genBtn) genBtn.addEventListener("click", function(){ generateSchedule(currentWeek); render(); });
   var convalidaBtn = document.getElementById("btn-convalida");
@@ -1263,6 +1489,61 @@ function wireEvents(){
       recomputeHours(wk);
       saveState(); render();
     });
+  });
+
+  // assenze
+  var amPrev = document.getElementById("assenze-mese-prev");
+  if(amPrev) amPrev.addEventListener("click", function(){ currentAssenzeMonth = shiftMonth(currentAssenzeMonth,-1); render(); });
+  var amNext = document.getElementById("assenze-mese-next");
+  if(amNext) amNext.addEventListener("click", function(){ currentAssenzeMonth = shiftMonth(currentAssenzeMonth,1); render(); });
+  var amPick = document.getElementById("assenze-mese-pick");
+  if(amPick) amPick.addEventListener("change", function(){ if(amPick.value) currentAssenzeMonth = amPick.value; render(); });
+  document.querySelectorAll("[data-assenza-cell]").forEach(function(sel){
+    sel.addEventListener("change", function(){
+      var parts = sel.getAttribute("data-assenza-cell").split("|");
+      var empId = parts[0], dateStr = parts[1];
+      var emp = empById(empId);
+      if(!emp) return;
+      var val = sel.value;
+      emp.assenze = emp.assenze || {};
+      if(emp.fineContrattoDal === dateStr) emp.fineContrattoDal = null;
+      if(val === "fine_contratto"){
+        emp.fineContrattoDal = dateStr;
+        Object.keys(emp.assenze).forEach(function(d){ if(d >= dateStr) delete emp.assenze[d]; });
+      } else if(val === ""){
+        delete emp.assenze[dateStr];
+      } else if(val === "rol"){
+        emp.assenze[dateStr] = {tipo:"rol", ore: (emp.assenze[dateStr] && emp.assenze[dateStr].ore) || 1};
+      } else {
+        emp.assenze[dateStr] = {tipo: val};
+      }
+      saveState(); render();
+    });
+  });
+  document.querySelectorAll("[data-assenza-ore]").forEach(function(inp){
+    inp.addEventListener("change", function(){
+      var parts = inp.getAttribute("data-assenza-ore").split("|");
+      var empId = parts[0], dateStr = parts[1];
+      var emp = empById(empId);
+      if(!emp || !emp.assenze || !emp.assenze[dateStr]) return;
+      emp.assenze[dateStr].ore = Number(inp.value)||0;
+      saveState(); render();
+    });
+  });
+  var riepAggiorna = document.getElementById("btn-riepilogo-aggiorna");
+  if(riepAggiorna) riepAggiorna.addEventListener("click", function(){
+    var dal = document.getElementById("assenze-export-dal").value;
+    var al = document.getElementById("assenze-export-al").value;
+    if(!dal || !al || dal>al){ alert("Seleziona un periodo valido (Dal ≤ Al)."); return; }
+    var tbody = document.getElementById("riepilogo-tbody");
+    if(tbody) tbody.innerHTML = renderAssenzeRiepilogoRows(dal, al);
+  });
+  var exportAssenzeBtn = document.getElementById("btn-assenze-export");
+  if(exportAssenzeBtn) exportAssenzeBtn.addEventListener("click", function(){
+    var dal = document.getElementById("assenze-export-dal").value;
+    var al = document.getElementById("assenze-export-al").value;
+    if(!dal || !al || dal>al){ alert("Seleziona un periodo valido (Dal ≤ Al)."); return; }
+    exportAssenzeExcel(dal, al);
   });
 }
 

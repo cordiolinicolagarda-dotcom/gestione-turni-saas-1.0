@@ -1,0 +1,5 @@
+Flask>=3.0,<4.0
+Flask-SQLAlchemy>=3.1,<4.0
+Flask-Login>=0.6,<0.7
+psycopg2-binary>=2.9,<3.0
+gunicorn>=21,<22

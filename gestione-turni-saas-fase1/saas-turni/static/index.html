@@ -1,0 +1,1288 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>9 Days Turni</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+:root{
+  --bg:#F7F3EC;
+  --surface:#FFFFFF;
+  --surface-2:#EFE8DA;
+  --ink:#1E2A2B;
+  --ink-muted:#5B6B69;
+  --border:#DDD4C2;
+  --accent:#C97A3D;
+  --accent-strong:#AD6329;
+  --accent-ink:#FFFFFF;
+  --teal:#2F6E6B;
+  --teal-soft:#E1EDEC;
+  --wine:#8B4B5C;
+  --wine-soft:#F1E3E6;
+  --amber-soft:#F6E7D8;
+  --success:#3F7A4C;
+  --success-soft:#E4EFE3;
+  --danger:#B54B3A;
+  --danger-soft:#F8E4DF;
+  --warning:#9C6B1F;
+  --warning-soft:#F3E7D2;
+  --shadow: 0 1px 2px rgba(30,42,43,.06), 0 6px 20px rgba(30,42,43,.06);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#12191A;
+    --surface:#1B2426;
+    --surface-2:#222E30;
+    --ink:#EDE7DA;
+    --ink-muted:#9FAFAC;
+    --border:#33474A;
+    --accent:#E0975A;
+    --accent-strong:#EEB07E;
+    --accent-ink:#1B2426;
+    --teal:#6FB2AC;
+    --teal-soft:#1E3634;
+    --wine:#D599A6;
+    --wine-soft:#3A2529;
+    --amber-soft:#3A2C1C;
+    --success:#7CBB86;
+    --success-soft:#203323;
+    --danger:#E28A78;
+    --danger-soft:#3A2420;
+    --warning:#D9AE68;
+    --warning-soft:#3A2E17;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#12191A;
+  --surface:#1B2426;
+  --surface-2:#222E30;
+  --ink:#EDE7DA;
+  --ink-muted:#9FAFAC;
+  --border:#33474A;
+  --accent:#E0975A;
+  --accent-strong:#EEB07E;
+  --accent-ink:#1B2426;
+  --teal:#6FB2AC;
+  --teal-soft:#1E3634;
+  --wine:#D599A6;
+  --wine-soft:#3A2529;
+  --amber-soft:#3A2C1C;
+  --success:#7CBB86;
+  --success-soft:#203323;
+  --danger:#E28A78;
+  --danger-soft:#3A2420;
+  --warning:#D9AE68;
+  --warning-soft:#3A2E17;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  color-scheme: dark;
+}
+
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Public Sans",system-ui,-apple-system,sans-serif;font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;}
+h1,h2,h3{font-family:"Fraunces","Public Sans",serif;font-weight:600;text-wrap:balance;margin:0;}
+.mono{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums;}
+button,select,input{font-family:inherit;font-size:inherit;color:inherit;}
+button{cursor:pointer;}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+
+#app{max-width:1180px;margin:0 auto;padding:28px 24px 80px;}
+
+.hero{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:22px;padding-bottom:20px;border-bottom:1px solid var(--border);}
+.hero-title{font-size:2.1rem;letter-spacing:-.01em;}
+.hero-title small{display:block;font-family:"Public Sans",sans-serif;font-weight:600;font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-strong);margin-bottom:6px;}
+.hero-sub{color:var(--ink-muted);font-size:.92rem;max-width:46ch;}
+
+.tabs{display:flex;gap:4px;margin-bottom:24px;border-bottom:1px solid var(--border);}
+.tab-btn{background:none;border:none;padding:11px 18px;border-radius:8px 8px 0 0;font-weight:600;color:var(--ink-muted);position:relative;top:1px;}
+.tab-btn.active{color:var(--ink);background:var(--surface);border:1px solid var(--border);border-bottom-color:var(--surface);}
+.tab-panel{display:none;}
+.tab-panel.active{display:block;}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px 22px;margin-bottom:18px;box-shadow:var(--shadow);}
+.card h2{font-size:1.15rem;margin-bottom:4px;}
+.card .card-desc{color:var(--ink-muted);font-size:.85rem;margin-bottom:16px;}
+.grid{display:grid;gap:14px;}
+.grid.cols-2{grid-template-columns:repeat(2,1fr);}
+.grid.cols-3{grid-template-columns:repeat(3,1fr);}
+.grid.cols-4{grid-template-columns:repeat(4,1fr);}
+@media(max-width:760px){.grid.cols-2,.grid.cols-3,.grid.cols-4{grid-template-columns:1fr;}}
+
+label.field{display:flex;flex-direction:column;gap:5px;font-size:.82rem;font-weight:600;color:var(--ink-muted);}
+label.field input[type="text"],label.field input[type="number"],label.field input[type="time"],label.field input[type="date"],label.field select{
+  border:1px solid var(--border);background:var(--bg);color:var(--ink);border-radius:8px;padding:8px 10px;font-weight:500;font-size:.9rem;
+}
+label.field input:focus,label.field select:focus{border-color:var(--accent);}
+.check{display:flex;align-items:center;gap:8px;font-size:.86rem;font-weight:500;color:var(--ink);}
+.check input{width:16px;height:16px;accent-color:var(--accent);}
+
+.btn{border:1px solid var(--border);background:var(--surface);color:var(--ink);padding:9px 16px;border-radius:9px;font-weight:600;font-size:.86rem;transition:transform .08s ease;}
+.btn:hover{border-color:var(--accent);}
+.btn:active{transform:scale(.97);}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);}
+.btn-primary:hover{background:var(--accent-strong);border-color:var(--accent-strong);}
+.btn-ghost{border-color:transparent;background:none;}
+.btn-danger{color:var(--danger);}
+.btn-sm{padding:5px 10px;font-size:.78rem;border-radius:7px;}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+
+table{border-collapse:collapse;width:100%;}
+.table-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--border);}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);font-size:.86rem;white-space:nowrap;}
+thead th{background:var(--surface-2);font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-muted);font-weight:700;}
+tbody tr:last-child td{border-bottom:none;}
+tbody tr:hover{background:var(--surface-2);}
+
+.pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-size:.72rem;font-weight:700;letter-spacing:.02em;}
+.pill-teal{background:var(--teal-soft);color:var(--teal);}
+.pill-amber{background:var(--amber-soft);color:var(--accent-strong);}
+.pill-wine{background:var(--wine-soft);color:var(--wine);}
+.pill-success{background:var(--success-soft);color:var(--success);}
+.pill-warning{background:var(--warning-soft);color:var(--warning);}
+.pill-danger{background:var(--danger-soft);color:var(--danger);}
+
+.empty-note{color:var(--ink-muted);font-size:.88rem;padding:18px;text-align:center;border:1px dashed var(--border);border-radius:10px;}
+
+.seed-banner{background:var(--amber-soft);border:1px solid var(--accent);color:var(--accent-strong);border-radius:10px;padding:10px 14px;font-size:.82rem;font-weight:600;margin-bottom:18px;display:flex;justify-content:space-between;gap:12px;align-items:center;}
+
+.emp-row{border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:12px;background:var(--surface);}
+.emp-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;}
+.emp-name{font-weight:700;font-size:1.02rem;}
+.emp-roles{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;}
+.avail-grid{display:grid;grid-template-columns:auto repeat(7,1fr);gap:6px;align-items:center;margin-top:14px;font-size:.78rem;}
+.avail-grid .dow{text-align:center;font-weight:700;color:var(--ink-muted);text-transform:uppercase;font-size:.68rem;letter-spacing:.04em;}
+.avail-cell{display:flex;flex-direction:column;gap:4px;align-items:center;padding:6px 4px;border-radius:8px;background:var(--surface-2);}
+.avail-cell label{display:flex;gap:4px;align-items:center;font-size:.68rem;color:var(--ink-muted);}
+.avail-cell input{width:13px;height:13px;accent-color:var(--teal);}
+
+.week-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:18px;}
+.week-bar .spacer{flex:1;}
+
+.assenze-list{display:flex;flex-wrap:wrap;gap:10px;}
+.assenza-chip{display:flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:9px;padding:6px 10px;font-size:.82rem;background:var(--surface-2);}
+
+.gap-banner{background:var(--danger-soft);border:1px solid var(--danger);color:var(--danger);border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:.86rem;}
+.gap-banner ul{margin:6px 0 0;padding-left:18px;}
+
+.sched-table th, .sched-table td{vertical-align:top;}
+.sched-table thead th{position:sticky;top:0;}
+.sched-table td.role-col{font-weight:700;color:var(--ink-muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;white-space:normal;background:var(--surface-2);}
+.slot-cell{min-width:150px;}
+.slot-people{display:flex;flex-direction:column;gap:6px;}
+.slot-person{display:flex;flex-direction:column;gap:2px;padding:6px 8px;border-radius:8px;background:var(--teal-soft);}
+.slot-person.role-banco{background:var(--amber-soft);}
+.slot-person.role-sala{background:var(--wine-soft);}
+.slot-person .pname{font-weight:700;font-size:.82rem;}
+.slot-person .ptime{font-size:.7rem;color:var(--ink-muted);}
+.slot-person select{width:100%;border:none;background:transparent;font-weight:700;font-size:.82rem;padding:0;}
+.slot-empty{border:1px dashed var(--danger);color:var(--danger);border-radius:8px;padding:6px 8px;font-size:.78rem;font-weight:600;text-align:center;}
+.slot-person-empty{background:transparent;border:1px dashed var(--danger);}
+.slot-person-empty select{color:var(--danger);}
+
+.hours-badge{font-weight:700;}
+
+footer.hint{margin-top:30px;color:var(--ink-muted);font-size:.78rem;text-align:center;}
+
+.print-only-header{display:none;}
+
+@media print{
+  @page{ size: landscape; margin: 8mm; }
+  .no-print{display:none !important;}
+  body{background:#fff;}
+  .card,.table-wrap{box-shadow:none;border-color:#999;}
+  .print-only-header{display:block;margin-bottom:12px;}
+  .print-only-header h2{font-size:1.25rem;}
+  body.planner-print-mode .hide-in-planner-print,
+  body.planner-print-mode .hero{display:none !important;}
+  body.planner-print-mode #app{padding:0;max-width:none;}
+  body.planner-print-mode .print-only-header{margin-bottom:6px;}
+  body.planner-print-mode .print-only-header h2{font-size:1rem;}
+  body.planner-print-mode .table-wrap{overflow:visible;border:none;}
+  body.planner-print-mode .sched-table{table-layout:fixed;width:100%;font-size:7.5px;}
+  body.planner-print-mode .sched-table th, body.planner-print-mode .sched-table td{white-space:normal;padding:2px 3px;overflow-wrap:break-word;}
+  body.planner-print-mode .sched-table th:first-child, body.planner-print-mode .sched-table td:first-child{width:10%;}
+  body.planner-print-mode .sched-table thead th{font-size:6.5px;padding:3px 3px;}
+  body.planner-print-mode .sched-table thead th div{font-size:6px;}
+  body.planner-print-mode .role-col{font-size:6px;line-height:1.15;}
+  body.planner-print-mode .slot-cell{min-width:0;}
+  body.planner-print-mode .slot-people{gap:2px;}
+  body.planner-print-mode .slot-person, body.planner-print-mode .slot-person-empty{padding:2px 3px;border-radius:4px;}
+  body.planner-print-mode .slot-person .pname{font-size:7px;}
+  body.planner-print-mode .ptime{font-size:6px;}
+  body.planner-print-mode .pill{font-size:5.5px;padding:1px 4px;}
+  body.planner-print-mode select{border:none;background:transparent !important;pointer-events:none;-webkit-appearance:none;appearance:none;padding:0;font-size:7px;font-weight:700;width:100%;}
+}
+</style>
+
+
+</head>
+<body>
+<a href="/logout" title="Esci dall'account" style="position:fixed;top:8px;right:10px;z-index:9999;font-size:12px;color:#8a8f98;text-decoration:none;background:#fff;padding:3px 8px;border-radius:6px;box-shadow:0 1px 2px rgba(0,0,0,.12);">Esci</a>
+<div id="app" lang="it"></div>
+
+<script>
+(function(){
+"use strict";
+
+var LS_KEY = "turni9days_v1";
+var DAYS = ["lunedi","martedi","mercoledi","giovedi","venerdi","sabato","domenica"];
+var DAY_LABELS = {lunedi:"Lunedì",martedi:"Martedì",mercoledi:"Mercoledì",giovedi:"Giovedì",venerdi:"Venerdì",sabato:"Sabato",domenica:"Domenica"};
+var DAY_SHORT = {lunedi:"Lun",martedi:"Mar",mercoledi:"Mer",giovedi:"Gio",venerdi:"Ven",sabato:"Sab",domenica:"Dom"};
+var WEEKEND = {sabato:true,domenica:true};
+
+function uid(){ return "e"+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+
+function defaultSettings(){
+  return {
+    barName:"9 Days Bar",
+    apertura:"08:00",
+    chiusuraFeriale:"21:00",
+    chiusuraWeekend:"22:00",
+    cuocoInizio:"07:00",
+    fineTurnoCuocoCapo:"15:00",
+    fineTurnoCuocoRiserva:"14:00",
+    minutiCucinaPrimaFineTurno:30,
+    camerierArrivo:"08:00",
+    bancoInizio:"07:00",
+    puntoMedioFeriale:"14:30",
+    puntoMedioWeekend:"15:00",
+    spezzatiDiDefault:false,
+    salaNormale:1,
+    bancoNormale:1,
+    salaPicco:2,
+    bancoPicco:1,
+    giorniPicco:{lunedi:true,martedi:false,mercoledi:false,giovedi:false,venerdi:false,sabato:true,domenica:true},
+    giorniPriorita2:{lunedi:false,martedi:false,mercoledi:false,giovedi:false,venerdi:true,sabato:false,domenica:false},
+    oreGiornaliereBase:8,
+    oreGiornaliereMax:10,
+    paritaStraordinariEnabled:true,
+    paritaStraordinariFinestra:4
+  };
+}
+
+function seedEmployees(){
+  function av(overrides){
+    var o={};
+    DAYS.forEach(function(d){ o[d]={mattina:true,pomeriggio:true}; });
+    if(overrides){ for(var k in overrides){ o[k]=overrides[k]; } }
+    return o;
+  }
+  return [
+    {id:"emtq4y73jijd6d",nome:"Mohamed",ruoli:{cuoco_capo:true,cuoco_riserva:false,banco:false,sala:false},oreContratto:40,straordinario:0,turnoPreferito:"mattina",spezzatiOk:false,tipoContratto:"fisso",
+      disponibilita:av({martedi:{mattina:false,pomeriggio:false},giovedi:{mattina:false,pomeriggio:false}})},
+    {id:"emtq4ytnj51xvw",nome:"Yohan",ruoli:{cuoco_capo:false,cuoco_riserva:true,banco:false,sala:true},oreContratto:16,straordinario:10,turnoPreferito:"pomeriggio",spezzatiOk:true,tipoContratto:"fisso",
+      disponibilita:av()},
+    {id:"emtq4zwjr1vo8y",nome:"Veronica",ruoli:{cuoco_capo:false,cuoco_riserva:false,banco:true,sala:false},oreContratto:40,straordinario:6,turnoPreferito:"indifferente",spezzatiOk:false,tipoContratto:"fisso",
+      disponibilita:av()},
+    {id:"emtq508hs46fzc",nome:"Alfonso",ruoli:{cuoco_capo:false,cuoco_riserva:false,banco:true,sala:false},oreContratto:20,straordinario:4,turnoPreferito:"pomeriggio",spezzatiOk:false,tipoContratto:"fisso",
+      disponibilita:av({lunedi:{mattina:false,pomeriggio:false},martedi:{mattina:false,pomeriggio:false},mercoledi:{mattina:false,pomeriggio:false},giovedi:{mattina:false,pomeriggio:false},venerdi:{mattina:false,pomeriggio:false},sabato:{mattina:false,pomeriggio:true},domenica:{mattina:false,pomeriggio:true}})},
+    {id:"emtq51gogszyo9",nome:"Ion",ruoli:{cuoco_capo:false,cuoco_riserva:false,banco:true,sala:false},oreContratto:34,straordinario:6,turnoPreferito:"indifferente",spezzatiOk:false,tipoContratto:"fisso",
+      disponibilita:av()},
+    {id:"emtq51vq720h2e",nome:"Thomas",ruoli:{cuoco_capo:false,cuoco_riserva:false,banco:true,sala:true},oreContratto:40,straordinario:4,turnoPreferito:"indifferente",spezzatiOk:false,tipoContratto:"fisso",
+      disponibilita:av()},
+    {id:"emtq523xr26214",nome:"Mike",ruoli:{cuoco_capo:false,cuoco_riserva:false,banco:false,sala:true},oreContratto:30,straordinario:6,turnoPreferito:"indifferente",spezzatiOk:false,tipoContratto:"fisso",
+      disponibilita:av()},
+    {id:"emtq535svrnnno",nome:"Anna",ruoli:{cuoco_capo:false,cuoco_riserva:false,banco:false,sala:true},oreContratto:40,straordinario:0,turnoPreferito:"indifferente",spezzatiOk:false,tipoContratto:"fisso",
+      disponibilita:av({sabato:{mattina:false,pomeriggio:false},domenica:{mattina:false,pomeriggio:false}})},
+    {id:"emtq53s5c4dbfx",nome:"Marta",ruoli:{cuoco_capo:false,cuoco_riserva:false,banco:false,sala:true},oreContratto:24,straordinario:0,turnoPreferito:"indifferente",spezzatiOk:false,tipoContratto:"fisso",
+      disponibilita:av({lunedi:{mattina:false,pomeriggio:false},martedi:{mattina:false,pomeriggio:false},mercoledi:{mattina:false,pomeriggio:false},giovedi:{mattina:false,pomeriggio:false}})}
+  ];
+}
+
+function normalizeState(parsed){
+  if(!parsed || typeof parsed!=="object") parsed = {};
+  if(!parsed.settings) parsed.settings = defaultSettings();
+  if(!parsed.employees) parsed.employees = [];
+  if(!parsed.weeks) parsed.weeks = {};
+  // migrazione: "chiusura cucina" (vecchio modello) -> "fine turno cuoco" (nuovo modello, stesso orario riusato)
+  if(parsed.settings.fineTurnoCuocoCapo===undefined){
+    parsed.settings.fineTurnoCuocoCapo = parsed.settings.chiusuraCucinaCapo || defaultSettings().fineTurnoCuocoCapo;
+  }
+  if(parsed.settings.fineTurnoCuocoRiserva===undefined){
+    parsed.settings.fineTurnoCuocoRiserva = parsed.settings.chiusuraCucinaRiserva || defaultSettings().fineTurnoCuocoRiserva;
+  }
+  delete parsed.settings.chiusuraCucinaCapo;
+  delete parsed.settings.chiusuraCucinaRiserva;
+  if(parsed.settings.giorniPriorita2===undefined) parsed.settings.giorniPriorita2 = defaultSettings().giorniPriorita2;
+  if(parsed.settings.oreGiornaliereBase===undefined) parsed.settings.oreGiornaliereBase = defaultSettings().oreGiornaliereBase;
+  if(parsed.settings.oreGiornaliereMax===undefined) parsed.settings.oreGiornaliereMax = defaultSettings().oreGiornaliereMax;
+  if(parsed.settings.paritaStraordinariEnabled===undefined) parsed.settings.paritaStraordinariEnabled = defaultSettings().paritaStraordinariEnabled;
+  if(parsed.settings.paritaStraordinariFinestra===undefined) parsed.settings.paritaStraordinariFinestra = defaultSettings().paritaStraordinariFinestra;
+  return parsed;
+}
+
+function loadStateLocal(){
+  try{
+    var raw = localStorage.getItem(LS_KEY);
+    if(raw){ return normalizeState(JSON.parse(raw)); }
+  }catch(e){ console.warn("Impossibile leggere i dati salvati, riparto da zero.", e); }
+  return { settings:defaultSettings(), employees:seedEmployees(), weeks:{}, isSeed:true };
+}
+
+var state = null;
+var activeTab = "turni";
+var currentWeek = mondayOf(isoDate(new Date()));
+var editingEmpId = null;
+var USE_API = false;
+var apiVersion = 0;
+var syncStatus = "idle";
+var pollTimer = null;
+var saveTimer = null;
+
+function saveState(){
+  if(USE_API){ scheduleApiSave(); return; }
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
+  catch(e){ console.warn("Impossibile salvare i dati (storage pieno o non disponibile).", e); }
+}
+
+function syncBadgeInfo(){
+  if(!USE_API) return {cls:"", label:"💾 Solo su questo browser"};
+  if(syncStatus==="saving") return {cls:"pill-teal", label:"🔄 Salvataggio…"};
+  if(syncStatus==="error") return {cls:"pill-danger", label:"⚠️ Errore di rete — riprovo…"};
+  if(syncStatus==="conflict") return {cls:"pill-warning", label:"🔁 Aggiornato da un altro computer"};
+  return {cls:"pill-success", label:"🟢 Sincronizzato in rete locale"};
+}
+function setSyncStatus(s){
+  syncStatus = s;
+  var el = document.getElementById("sync-badge");
+  if(el){ var info = syncBadgeInfo(); el.className = "pill "+info.cls; el.innerHTML = info.label; }
+}
+function scheduleApiSave(){
+  setSyncStatus("saving");
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(doApiSave, 300);
+}
+function doApiSave(){
+  fetch("/api/state", {method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify({version:apiVersion, data:state})})
+    .then(function(r){ return r.json().then(function(j){ return {status:r.status, body:j}; }); })
+    .then(function(res){
+      if(res.status===200){ apiVersion = res.body.version; setSyncStatus("ok"); }
+      else if(res.status===409){
+        apiVersion = res.body.version; state = normalizeState(res.body.data);
+        setSyncStatus("conflict"); render();
+      } else { setSyncStatus("error"); }
+    })
+    .catch(function(){ setSyncStatus("error"); });
+}
+function startPolling(){
+  clearInterval(pollTimer);
+  pollTimer = setInterval(function(){
+    if(!USE_API || editingEmpId!==null) return;
+    fetch("/api/state",{cache:"no-store"}).then(function(r){return r.json();}).then(function(res){
+      if(res && typeof res.version==="number" && res.version!==apiVersion){
+        apiVersion = res.version; state = normalizeState(res.data); render();
+      }
+    }).catch(function(){});
+  }, 20000);
+}
+function boot(){
+  fetch("/api/state",{cache:"no-store"}).then(function(r){
+    if(!r.ok) throw new Error("api non disponibile");
+    return r.json();
+  }).then(function(res){
+    USE_API = true;
+    apiVersion = res.version||0;
+    if(res.data){ state = normalizeState(res.data); }
+    else { state = { settings:defaultSettings(), employees:seedEmployees(), weeks:{}, isSeed:true }; apiVersion = 0; }
+    render();
+    startPolling();
+    if(!res.data){ saveState(); }
+  }).catch(function(){
+    USE_API = false;
+    state = loadStateLocal();
+    render();
+  });
+}
+
+/* ---------- helpers di data/ora ---------- */
+function isoDate(d){
+  var y=d.getFullYear(), m=("0"+(d.getMonth()+1)).slice(-2), day=("0"+d.getDate()).slice(-2);
+  return y+"-"+m+"-"+day;
+}
+function mondayOf(dateStr){
+  var d = new Date(dateStr+"T00:00:00");
+  var wd = d.getDay();
+  var diff = (wd===0? -6 : 1-wd);
+  d.setDate(d.getDate()+diff);
+  return isoDate(d);
+}
+function addDays(dateStr,n){
+  var d = new Date(dateStr+"T00:00:00");
+  d.setDate(d.getDate()+n);
+  return isoDate(d);
+}
+function fmtDateLabel(dateStr){
+  var d = new Date(dateStr+"T00:00:00");
+  return d.toLocaleDateString("it-IT",{day:"2-digit",month:"short"});
+}
+function timeToMin(t){ var p=t.split(":"); return (+p[0])*60+(+p[1]); }
+function minToTime(m){
+  m = ((m%1440)+1440)%1440;
+  var h = Math.floor(m/60), mm = m%60;
+  return ("0"+h).slice(-2)+":"+("0"+mm).slice(-2);
+}
+function addMin(t,n){ return minToTime(timeToMin(t)+n); }
+function durH(t1,t2){ return Math.round(((timeToMin(t2)-timeToMin(t1))/60)*100)/100; }
+function isWeekend(day){ return !!WEEKEND[day]; }
+function dayType(day){ return isWeekend(day) ? "weekend" : "feriale"; }
+
+/* ---------- costruzione turni richiesti per giorno ---------- */
+function getSlotsForDay(settings, day){
+  var dt = dayType(day);
+  var chiusura = dt==="weekend" ? settings.chiusuraWeekend : settings.chiusuraFeriale;
+  var puntoMedio = dt==="weekend" ? settings.puntoMedioWeekend : settings.puntoMedioFeriale;
+  var picco = !!settings.giorniPicco[day];
+  var salaMattina = picco ? settings.salaPicco : settings.salaNormale;
+  var bancoMattina = picco ? settings.bancoPicco : settings.bancoNormale;
+  return [
+    {key:"cuoco", label:"Cuoco", turno:"mattina", count:1, inizio:settings.cuocoInizio, fine:null, isCuoco:true},
+    {key:"banco_mattina", label:"Banco", turno:"mattina", count:bancoMattina, inizio:settings.bancoInizio, fine:puntoMedio, ruolo:"banco"},
+    {key:"sala_mattina", label:"Sala", turno:"mattina", count:salaMattina, inizio:settings.camerierArrivo, fine:puntoMedio, ruolo:"sala"},
+    {key:"banco_pomeriggio", label:"Banco", turno:"pomeriggio", count:settings.bancoNormale, inizio:puntoMedio, fine:chiusura, ruolo:"banco"},
+    {key:"sala_pomeriggio", label:"Sala", turno:"pomeriggio", count:settings.salaNormale, inizio:puntoMedio, fine:chiusura, ruolo:"sala"}
+  ];
+}
+var SLOT_ORDER = ["cuoco","banco_mattina","sala_mattina","banco_pomeriggio","sala_pomeriggio"];
+var SLOT_LABELS = {cuoco:"Cuoco (7:00 → chiusura cucina)",banco_mattina:"Banco · mattina",sala_mattina:"Sala · mattina",banco_pomeriggio:"Banco · pomeriggio",sala_pomeriggio:"Sala · pomeriggio"};
+
+/* ---------- generazione automatica ---------- */
+/* Ordine di priorità quando il personale non basta a coprire tutto:
+   1) cucina sempre coperta (assegnata per prima, su tutti i giorni)
+   2) giorni di priorità 1 (di default lun/sab/dom): sala+banco, mattina e pomeriggio
+   3) giorni di priorità 2 (di default venerdì): sala+banco, mattina e pomeriggio
+   4) resto della settimana: prima il banco su tutti i giorni, poi la sala
+      (se proprio manca personale, si accetta la sala scoperta nei giorni feriali) */
+function buildFohTasks(settings){
+  var p1Days = DAYS.filter(function(d){ return !!settings.giorniPicco[d]; });
+  var p2Days = DAYS.filter(function(d){ return !settings.giorniPicco[d] && !!settings.giorniPriorita2[d]; });
+  var ordinaryDays = DAYS.filter(function(d){ return !settings.giorniPicco[d] && !settings.giorniPriorita2[d]; });
+  var tasks = [];
+  p1Days.forEach(function(day){
+    getSlotsForDay(settings, day).filter(function(s){ return !s.isCuoco; }).forEach(function(s){
+      tasks.push({day:day, slot:s, livelloGap:"critico"});
+    });
+  });
+  p2Days.forEach(function(day){
+    getSlotsForDay(settings, day).filter(function(s){ return !s.isCuoco; }).forEach(function(s){
+      tasks.push({day:day, slot:s, livelloGap:"attenzione"});
+    });
+  });
+  ordinaryDays.forEach(function(day){
+    getSlotsForDay(settings, day).filter(function(s){ return !s.isCuoco && s.ruolo==="banco"; }).forEach(function(s){
+      tasks.push({day:day, slot:s, livelloGap:"attenzione"});
+    });
+  });
+  ordinaryDays.forEach(function(day){
+    getSlotsForDay(settings, day).filter(function(s){ return !s.isCuoco && s.ruolo==="sala"; }).forEach(function(s){
+      tasks.push({day:day, slot:s, livelloGap:"accettato"});
+    });
+  });
+  return tasks;
+}
+
+/* ore di straordinario accumulate da ciascun dipendente nelle N settimane precedenti a weekStart
+   (media mobile usata per il pareggiamento: vedi impostazioni "Pareggiamento straordinari") */
+function rollingOvertimeMap(weekStart){
+  var settings = state.settings;
+  var map = {};
+  if(!settings.paritaStraordinariEnabled) return map;
+  var n = Math.max(1, Number(settings.paritaStraordinariFinestra)||4);
+  for(var i=1;i<=n;i++){
+    var wStart = addDays(weekStart, -7*i);
+    var wk = state.weeks[wStart];
+    if(!wk || !wk.hoursWorked) continue;
+    state.employees.forEach(function(e){
+      var h = wk.hoursWorked[e.id]||0;
+      var target = Number(e.oreContratto)||0;
+      var ot = Math.max(0, h-target);
+      map[e.id] = (map[e.id]||0) + ot;
+    });
+  }
+  return map;
+}
+
+function generateSchedule(weekStart){
+  var settings = state.settings;
+  var employees = state.employees;
+  var wk = state.weeks[weekStart] || {weekStart:weekStart, assenze:{}};
+  var assenze = wk.assenze || {};
+
+  var hoursWorked = {}, turnoTaken = {}, dailyWorked = {}; // turnoTaken["empId|day_turno"]=true, dailyWorked["empId|day"]=ore
+  employees.forEach(function(e){ hoursWorked[e.id]=0; });
+
+  var assign = {}, gaps = [];
+  DAYS.forEach(function(day){ assign[day] = {}; });
+
+  function dayHours(id, day){ return dailyWorked[id+"|"+day]||0; }
+  function addDayHours(id, day, h){ dailyWorked[id+"|"+day] = dayHours(id,day)+h; }
+  function dayCapOk(e, day, hours){
+    return dayHours(e.id, day) + hours <= (Number(settings.oreGiornaliereMax)||10) + 0.001;
+  }
+  function eligible(e, turno, day, ruoloOk){
+    if(assenze[e.id]) return false;
+    if(!ruoloOk(e)) return false;
+    var disp = e.disponibilita && e.disponibilita[day];
+    if(!disp || !disp[turno]) return false;
+    var otherTurno = turno==="mattina"?"pomeriggio":"mattina";
+    if(turnoTaken[e.id+"|"+day+"_"+otherTurno] && !e.spezzatiOk) return false;
+    if(turnoTaken[e.id+"|"+day+"_"+turno]) return false;
+    return true;
+  }
+  function capacityOk(e, hours){
+    var max = (Number(e.oreContratto)||0) + (Number(e.straordinario)||0);
+    if(e.tipoContratto==="chiamata" && max<=0) return true; // nessun tetto impostato: nessun limite
+    return hoursWorked[e.id] + hours <= max + 0.001;
+  }
+  function score(e){
+    var target = Number(e.oreContratto)||1;
+    return hoursWorked[e.id]/target;
+  }
+  var rollingOT = rollingOvertimeMap(weekStart);
+  function overtimePenalty(e, dur){
+    if(!settings.paritaStraordinariEnabled) return 0;
+    var target = Number(e.oreContratto)||0;
+    var wouldBeOvertime = (hoursWorked[e.id]||0) + (dur||0) > target + 0.01;
+    if(!wouldBeOvertime) return 0;
+    return rollingOT[e.id]||0;
+  }
+  function pick(candidates, turno, dur){
+    if(!candidates.length) return null;
+    candidates.sort(function(a,b){
+      var pa = (a.turnoPreferito===turno?0:(a.turnoPreferito==="indifferente"?1:2)) + (a.tipoContratto==="chiamata"?10:0);
+      var pb = (b.turnoPreferito===turno?0:(b.turnoPreferito==="indifferente"?1:2)) + (b.tipoContratto==="chiamata"?10:0);
+      if(pa!==pb) return pa-pb;
+      var oa = overtimePenalty(a, dur), ob = overtimePenalty(b, dur);
+      if(oa!==ob) return oa-ob;
+      return score(a)-score(b);
+    });
+    return candidates[0];
+  }
+
+  // 1) cucina: sempre per prima, su tutti i giorni della settimana
+  DAYS.forEach(function(day){
+    var durCapo = durH(settings.cuocoInizio, settings.fineTurnoCuocoCapo);
+    var durRis = durH(settings.cuocoInizio, settings.fineTurnoCuocoRiserva);
+    var capoCands = employees.filter(function(e){ return eligible(e,"mattina",day,function(x){return x.ruoli.cuoco_capo;}) && capacityOk(e, durCapo) && dayCapOk(e, day, durCapo); });
+    var chosen = pick(capoCands,"mattina",durCapo), tipo = "capo";
+    if(!chosen){
+      var risCands = employees.filter(function(e){ return eligible(e,"mattina",day,function(x){return x.ruoli.cuoco_riserva;}) && capacityOk(e, durRis) && dayCapOk(e, day, durRis); });
+      chosen = pick(risCands,"mattina",durRis); tipo = "riserva";
+    }
+    if(chosen){
+      var fine = tipo==="capo" ? settings.fineTurnoCuocoCapo : settings.fineTurnoCuocoRiserva;
+      var chiusuraCucina = addMin(fine, -settings.minutiCucinaPrimaFineTurno);
+      var durCuoco = durH(settings.cuocoInizio, fine);
+      hoursWorked[chosen.id] += durCuoco;
+      addDayHours(chosen.id, day, durCuoco);
+      turnoTaken[chosen.id+"|"+day+"_mattina"] = true;
+      assign[day].cuoco = {empId:chosen.id, tipo:tipo, inizio:settings.cuocoInizio, fine:fine, chiusuraCucina:chiusuraCucina};
+    } else {
+      assign[day].cuoco = null;
+      gaps.push({day:day, key:"cuoco", livello:"critico", msg:"Nessun cuoco disponibile — "+DAY_LABELS[day]});
+    }
+  });
+
+  // 2) sala/banco: giorni di priorità 1, poi priorità 2, poi banco sul resto della settimana, poi sala sul resto
+  buildFohTasks(settings).forEach(function(task){
+    var day = task.day, slot = task.slot;
+    var dur = durH(slot.inizio, slot.fine);
+    var picked = [];
+    for(var i=0;i<slot.count;i++){
+      var cands = employees.filter(function(e){
+        if(picked.indexOf(e.id)!==-1) return false;
+        return eligible(e, slot.turno, day, function(x){ return !!x.ruoli[slot.ruolo]; }) && capacityOk(e, dur) && dayCapOk(e, day, dur);
+      });
+      var ch = pick(cands, slot.turno, dur);
+      if(ch){
+        picked.push(ch.id);
+        hoursWorked[ch.id] += dur;
+        addDayHours(ch.id, day, dur);
+        turnoTaken[ch.id+"|"+day+"_"+slot.turno] = true;
+      } else {
+        gaps.push({day:day, key:slot.key, livello:task.livelloGap, msg:"Manca "+slot.label.toLowerCase()+" · "+(slot.turno==="mattina"?"mattina":"pomeriggio")+" — "+DAY_LABELS[day]});
+      }
+    }
+    assign[day][slot.key] = picked.map(function(id){ return {empId:id, inizio:slot.inizio, fine:slot.fine}; });
+  });
+
+  // 3) chi non raggiunge le ore di contratto: allunga uno dei suoi turni all'indietro,
+  //    accavallandolo con quello precedente, finché non arriva alle ore stabilite (o non c'è più margine)
+  function earliestExtensionBound(key){
+    if(key==="banco_pomeriggio") return settings.bancoInizio;
+    if(key==="sala_pomeriggio") return settings.camerierArrivo;
+    if(key==="sala_mattina") return settings.bancoInizio;
+    return null; // banco_mattina è già il turno più presto della giornata: niente da accavallare prima
+  }
+  employees.forEach(function(emp){
+    if(emp.tipoContratto==="chiamata") return;
+    var target = Number(emp.oreContratto)||0;
+    if(target<=0) return;
+    var deficit = target - (hoursWorked[emp.id]||0);
+    if(deficit<=0.01) return;
+
+    var mySlots = [];
+    DAYS.forEach(function(day){
+      ["banco_pomeriggio","sala_pomeriggio","sala_mattina"].forEach(function(key){
+        (assign[day][key]||[]).forEach(function(a){
+          if(a.empId===emp.id) mySlots.push({day:day, key:key, entry:a});
+        });
+      });
+    });
+    // priorità: prima i turni pomeriggio (più margine per accavallarsi al turno di mattina precedente)
+    mySlots.sort(function(x,y){
+      var rank = function(k){ return k.indexOf("pomeriggio")!==-1 ? 0 : 1; };
+      return rank(x.key)-rank(y.key);
+    });
+
+    mySlots.forEach(function(ref){
+      if(deficit<=0.01) return;
+      var earliest = earliestExtensionBound(ref.key);
+      if(!earliest) return;
+      // il turno precedente è quello di mattina: serve essere disponibili anche a mattina quel giorno,
+      // e non essere già impegnati altrove in quella fascia
+      var disp = emp.disponibilita && emp.disponibilita[ref.day];
+      if(!disp || !disp.mattina) return;
+      if(turnoTaken[emp.id+"|"+ref.day+"_mattina"] && ref.key!=="sala_mattina") return;
+      var current = ref.entry.inizio;
+      var maxBackMin = timeToMin(current) - timeToMin(earliest);
+      if(maxBackMin<=0) return;
+      var neededMin = Math.round(deficit*60);
+      // non superare mai il massimo di ore giornaliere (default 10h) per questa persona in questo giorno
+      var dailyRemainMin = Math.round(((Number(settings.oreGiornaliereMax)||10) - dayHours(emp.id, ref.day)) * 60);
+      var applyMin = Math.min(maxBackMin, neededMin, Math.max(0,dailyRemainMin));
+      applyMin = Math.floor(applyMin/15)*15; // arrotonda a quarti d'ora
+      if(applyMin<=0) return;
+      ref.entry.inizio = addMin(current, -applyMin);
+      var addedHours = applyMin/60;
+      hoursWorked[emp.id] += addedHours;
+      addDayHours(emp.id, ref.day, addedHours);
+      deficit -= addedHours;
+    });
+  });
+
+  wk.assign = assign;
+  wk.gaps = gaps;
+  wk.hoursWorked = hoursWorked;
+  wk.generatedAt = new Date().toISOString();
+  state.weeks[weekStart] = wk;
+  saveState();
+}
+
+/* ---------- render root ---------- */
+function empName(id){ var e = state.employees.find(function(x){return x.id===id;}); return e?e.nome:"—"; }
+function empById(id){ return state.employees.find(function(x){return x.id===id;}); }
+
+function render(){
+  var app = document.getElementById("app");
+  app.innerHTML =
+    heroHtml() +
+    tabsHtml() +
+    '<div class="tab-panel'+(activeTab==="impostazioni"?" active":"")+'" id="panel-impostazioni">'+renderImpostazioni()+'</div>'+
+    '<div class="tab-panel'+(activeTab==="personale"?" active":"")+'" id="panel-personale">'+renderPersonale()+'</div>'+
+    '<div class="tab-panel'+(activeTab==="turni"?" active":"")+'" id="panel-turni">'+renderTurni()+'</div>'+
+    '<footer class="hint no-print">'+(USE_API?'Dati condivisi in rete locale su questo computer server. “Esporta dati” resta utile come backup manuale.':'Dati salvati solo in questo browser. Usa “Esporta dati” per un backup prima di cambiare computer o svuotare la cache.')+'</footer>';
+  wireEvents();
+}
+
+function heroHtml(){
+  var badge = syncBadgeInfo();
+  return '<div class="hero">'+
+    '<div><h1 class="hero-title"><small>Gestione turni</small>'+escapeHtml(state.settings.barName)+'</h1>'+
+    '<div class="hero-sub">Copertura settimanale automatica per cucina, banco e sala — a partire dai contratti e dalla disponibilità di ogni persona.</div></div>'+
+    '<span class="pill no-print '+badge.cls+'" id="sync-badge" style="'+(badge.cls?'':'background:var(--surface-2);color:var(--ink-muted);')+'">'+badge.label+'</span>'+
+    '</div>';
+}
+function tabsHtml(){
+  var tabs = [["turni","Turni"],["personale","Personale"],["impostazioni","Impostazioni"]];
+  return '<div class="tabs no-print">'+tabs.map(function(t){
+    return '<button class="tab-btn'+(activeTab===t[0]?" active":"")+'" data-tab="'+t[0]+'">'+t[1]+'</button>';
+  }).join("")+'</div>';
+}
+function escapeHtml(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+
+/* ---------- IMPOSTAZIONI ---------- */
+function renderImpostazioni(){
+  var s = state.settings;
+  function num(field,label,suffix){
+    return '<label class="field">'+label+'<input type="number" min="0" data-setting="'+field+'" value="'+s[field]+'"></label>';
+  }
+  function time(field,label){
+    return '<label class="field">'+label+'<input type="time" data-setting="'+field+'" value="'+s[field]+'"></label>';
+  }
+  var giorniPiccoBoxes = DAYS.map(function(d){
+    return '<label class="check"><input type="checkbox" data-picco-day="'+d+'" '+(s.giorniPicco[d]?"checked":"")+'>'+DAY_LABELS[d]+'</label>';
+  }).join("");
+  var giorniPriorita2Boxes = DAYS.map(function(d){
+    return '<label class="check"><input type="checkbox" data-priorita2-day="'+d+'" '+(s.giorniPriorita2[d]?"checked":"")+'>'+DAY_LABELS[d]+'</label>';
+  }).join("");
+
+  return ''+
+  '<div class="card" style="border-color:var(--accent);"><h2>Priorità quando il personale non basta</h2>'+
+    '<div class="card-desc">Quando non c’è abbastanza personale per coprire tutti i turni, il generatore rispetta sempre questo ordine:</div>'+
+    '<ol style="margin:0;padding-left:20px;font-size:.86rem;display:flex;flex-direction:column;gap:6px;">'+
+      '<li><strong>Cucina sempre coperta</strong> — il cuoco (capo o riserva) viene assegnato per primo, su tutti i giorni.</li>'+
+      '<li><strong>Giorni di priorità 1</strong> (di default Lun, Sab, Dom — gli stessi “giorni di massima affluenza” qui sotto): banco + sala coperti sia a mattina che a pomeriggio.</li>'+
+      '<li><strong>Giorni di priorità 2</strong> (di default Venerdì, configurabile qui sotto): stessa copertura completa, ma solo dopo aver garantito i giorni di priorità 1.</li>'+
+      '<li><strong>Resto della settimana</strong>: si copre prima il banco su tutti i giorni rimasti; se il personale non basta, si accetta di lasciare scoperta la sala nei giorni feriali piuttosto che scoprire cucina o banco.</li>'+
+    '</ol>'+
+    '<div class="card-desc" style="margin-top:12px;margin-bottom:6px;">Giorni di priorità 2:</div>'+
+    '<div style="display:flex;gap:14px;flex-wrap:wrap;">'+giorniPriorita2Boxes+'</div>'+
+  '</div>'+
+
+  '<div class="card"><h2>Ore massime al giorno</h2><div class="card-desc">Nessun dipendente viene messo in turno oltre questo limite in una singola giornata, nemmeno per allungare un turno o coprire un buco — vale anche quando si allunga un turno per raggiungere le ore di contratto (vedi scheda Turni).</div>'+
+    '<div class="grid cols-2">'+
+      num("oreGiornaliereBase","Ore giornaliere di base")+
+      num("oreGiornaliereMax","Ore massime al giorno (con straordinario)")+
+    '</div></div>'+
+
+  '<div class="card"><h2>Pareggiamento straordinari</h2><div class="card-desc">Il programma ricorda quante ore di straordinario ha fatto ciascun dipendente nelle settimane passate. Quando è attivo, a parità di preferenze e disponibilità il generatore preferisce dare eventuali nuove ore di straordinario a chi ne ha accumulate di meno nella finestra scelta qui sotto (media mobile) — resta comunque una preferenza: se serve a garantire la copertura, lo straordinario viene assegnato comunque a chi è disponibile.</div>'+
+    '<label class="check"><input type="checkbox" data-setting-bool="paritaStraordinariEnabled" '+(s.paritaStraordinariEnabled?"checked":"")+'> Prova a pareggiare gli straordinari tra i dipendenti</label>'+
+    '<div class="grid cols-2" style="margin-top:12px;">'+
+      num("paritaStraordinariFinestra","Finestra di calcolo (numero di settimane precedenti)")+
+    '</div>'+
+  '</div>'+
+
+  '<div class="card"><h2>Orari di apertura al pubblico</h2><div class="card-desc">Valgono per tutta la sala/banco; la cucina ha orari propri qui sotto.</div>'+
+    '<div class="grid cols-3">'+
+      time("apertura","Apertura")+
+      time("chiusuraFeriale","Chiusura Lun–Ven")+
+      time("chiusuraWeekend","Chiusura Sab–Dom")+
+    '</div></div>'+
+
+  '<div class="card"><h2>Cucina</h2><div class="card-desc">Un solo cuoco al giorno: il capo e la riserva si alternano (la riserva copre soprattutto i giorni liberi del capo). La cucina chiude circa mezz’ora prima della fine turno del cuoco.</div>'+
+    '<div class="grid cols-4">'+
+      time("cuocoInizio","Cuoco in servizio dalle")+
+      time("fineTurnoCuocoCapo","Fine turno cuoco capo")+
+      time("fineTurnoCuocoRiserva","Fine turno cuoco riserva")+
+      num("minutiCucinaPrimaFineTurno","Minuti di anticipo chiusura cucina")+
+    '</div>'+
+    '<div class="card-desc" style="margin-top:10px;margin-bottom:0;">Con questi valori la cucina chiude alle <strong class="mono">'+addMin(s.fineTurnoCuocoCapo,-s.minutiCucinaPrimaFineTurno)+'</strong> quando è di turno il capo, e alle <strong class="mono">'+addMin(s.fineTurnoCuocoRiserva,-s.minutiCucinaPrimaFineTurno)+'</strong> quando è di turno la riserva.</div>'+
+  '</div>'+
+
+  '<div class="card"><h2>Banco e sala</h2><div class="card-desc">Il banco è presente dalle 7 insieme al cuoco per preparare sala e cucina; il/la cameriere/a arriva all’apertura. Il punto di passaggio mattina→pomeriggio è configurabile.</div>'+
+    '<div class="grid cols-4">'+
+      time("bancoInizio","Banco in servizio dalle")+
+      time("camerierArrivo","Cameriere/a arriva alle")+
+      time("puntoMedioFeriale","Cambio turno Lun–Ven")+
+      time("puntoMedioWeekend","Cambio turno Sab–Dom")+
+    '</div>'+
+    '<div class="grid cols-2" style="margin-top:14px;">'+
+      num("salaNormale","Persone in sala — giorno normale")+
+      num("bancoNormale","Persone al banco — giorno normale")+
+    '</div></div>'+
+
+  '<div class="card"><h2>Giorni di massima affluenza</h2><div class="card-desc">Rinforzo in sala al mattino, e sono anche i giorni di “priorità 1” per la copertura completa (vedi la card in cima). Sabato, domenica e lunedì sono impostati come picco di default.</div>'+
+    '<div class="grid cols-2">'+
+      num("salaPicco","Persone in sala — mattina di picco")+
+      num("bancoPicco","Persone al banco — mattina di picco")+
+    '</div>'+
+    '<div style="margin-top:12px;display:flex;gap:14px;flex-wrap:wrap;">'+giorniPiccoBoxes+'</div>'+
+  '</div>'+
+
+  '<div class="card"><h2>Turni spezzati</h2><div class="card-desc">Di default non vengono usati: un dipendente può fare al massimo un turno (mattina o pomeriggio) al giorno. Si spezza solo se lo abiliti per la singola persona nella scheda “Personale”.</div>'+
+    '<label class="check"><input type="checkbox" data-setting-bool="spezzatiDiDefault" '+(s.spezzatiDiDefault?"checked":"")+'> Consenti comunque i turni spezzati come opzione generale (resta comunque necessario spuntarlo per ogni dipendente)</label>'+
+  '</div>'+
+
+  '<div class="btn-row" style="margin-bottom:18px;"><button class="btn" id="btn-reset-settings">Ripristina impostazioni di default</button></div>'+
+
+  '<div class="card"><h2>Backup dati</h2><div class="card-desc">Tutto è salvato solo nel browser di questo computer. Esporta un backup prima di svuotare la cache o per portare i dati su un altro computer.</div>'+
+    '<div class="btn-row"><button class="btn" id="btn-export">Esporta dati</button><button class="btn" id="btn-import-toggle">Importa dati</button></div>'+
+    '<div id="export-box" style="display:none;margin-top:14px;">'+
+      '<label class="field">Copia questo testo e conservalo (es. in un file di testo)'+
+      '<textarea readonly id="export-text" style="width:100%;min-height:140px;border:1px solid var(--border);background:var(--bg);color:var(--ink);border-radius:8px;padding:10px;font-family:\'IBM Plex Mono\',monospace;font-size:.72rem;"></textarea></label>'+
+      '<div class="btn-row" style="margin-top:8px;"><button class="btn btn-sm" id="btn-copy-export">Copia negli appunti</button></div>'+
+    '</div>'+
+    '<div id="import-box" style="display:none;margin-top:14px;">'+
+      '<label class="field">Incolla qui un backup esportato in precedenza (sostituisce tutti i dati attuali)'+
+      '<textarea id="import-text" style="width:100%;min-height:140px;border:1px solid var(--border);background:var(--bg);color:var(--ink);border-radius:8px;padding:10px;font-family:\'IBM Plex Mono\',monospace;font-size:.72rem;"></textarea></label>'+
+      '<div class="btn-row" style="margin-top:8px;"><button class="btn btn-primary btn-sm" id="btn-do-import">Importa e sostituisci</button></div>'+
+    '</div>'+
+  '</div>';
+}
+
+/* ---------- PERSONALE ---------- */
+function ruoloPills(e){
+  var out=[];
+  if(e.ruoli.cuoco_capo) out.push('<span class="pill pill-teal">Cuoco capo</span>');
+  if(e.ruoli.cuoco_riserva) out.push('<span class="pill pill-teal">Cuoco riserva</span>');
+  if(e.ruoli.banco) out.push('<span class="pill pill-amber">Banco</span>');
+  if(e.ruoli.sala) out.push('<span class="pill pill-wine">Sala</span>');
+  return out.join(" ");
+}
+function renderPersonale(){
+  var html = '';
+  if(state.isSeed){
+    html += '<div class="seed-banner no-print"><span>Personale precaricato di partenza: controlla e adegua pure ore, disponibilità e ruoli alla situazione reale.</span><button class="btn btn-sm" id="btn-dismiss-seed">Ho capito</button></div>';
+  }
+  html += '<div class="btn-row" style="margin-bottom:16px;"><button class="btn btn-primary" id="btn-add-emp">+ Aggiungi dipendente</button></div>';
+
+  if(editingEmpId!==null){
+    html += renderEmpForm(editingEmpId);
+  }
+
+  if(!state.employees.length){
+    html += '<div class="empty-note">Nessun dipendente ancora. Aggiungine uno per iniziare a generare i turni.</div>';
+  } else {
+    state.employees.forEach(function(e){
+      if(e.id===editingEmpId) return;
+      html += '<div class="emp-row"><div class="emp-head">'+
+        '<div><div class="emp-name">'+escapeHtml(e.nome)+'</div><div class="emp-roles">'+ruoloPills(e)+'</div></div>'+
+        '<div class="btn-row">'+
+          (e.tipoContratto==="chiamata"?
+            '<span class="pill pill-teal">a chiamata · fino a '+e.oreContratto+'+'+e.straordinario+'h</span>' :
+            '<span class="pill" style="background:var(--surface-2);color:var(--ink-muted)">'+e.oreContratto+'h contratto · +'+e.straordinario+'h straord.</span>'
+          )+
+          '<span class="pill" style="background:var(--surface-2);color:var(--ink-muted)">pref. '+labelTurno(e.turnoPreferito)+'</span>'+
+          (e.spezzatiOk?'<span class="pill pill-warning">spezzati OK</span>':'')+
+          '<button class="btn btn-sm" data-edit-emp="'+e.id+'">Modifica</button>'+
+          '<button class="btn btn-sm btn-danger" data-del-emp="'+e.id+'">Elimina</button>'+
+        '</div>'+
+      '</div></div>';
+    });
+  }
+  return html;
+}
+function labelTurno(t){ return t==="mattina"?"mattina":t==="pomeriggio"?"pomeriggio":"indifferente"; }
+
+function renderEmpForm(id){
+  var isNew = id==="__new__";
+  var e = isNew ? {id:uid(),nome:"",ruoli:{cuoco_capo:false,cuoco_riserva:false,banco:false,sala:false},oreContratto:30,straordinario:4,turnoPreferito:"indifferente",spezzatiOk:false,tipoContratto:"fisso",disponibilita:defaultAvail()} : empById(id);
+  var roleKeys = [["cuoco_capo","Cuoco capo"],["cuoco_riserva","Cuoco riserva"],["banco","Banco"],["sala","Sala/Cameriere"]];
+  var roleBoxes = roleKeys.map(function(r){
+    return '<label class="check"><input type="checkbox" name="ruolo" value="'+r[0]+'" '+(e.ruoli[r[0]]?"checked":"")+'>'+r[1]+'</label>';
+  }).join("");
+
+  var availHeader = '<div class="dow"></div>'+DAYS.map(function(d){return '<div class="dow">'+DAY_SHORT[d]+'</div>';}).join("");
+  var mattinaRow = '<div style="font-size:.72rem;font-weight:700;color:var(--ink-muted)">Mattina</div>'+DAYS.map(function(d){
+    return '<div class="avail-cell"><input type="checkbox" data-avail="'+d+'|mattina" '+(e.disponibilita[d].mattina?"checked":"")+'></div>';
+  }).join("");
+  var pomeriggioRow = '<div style="font-size:.72rem;font-weight:700;color:var(--ink-muted)">Pomeriggio</div>'+DAYS.map(function(d){
+    return '<div class="avail-cell"><input type="checkbox" data-avail="'+d+'|pomeriggio" '+(e.disponibilita[d].pomeriggio?"checked":"")+'></div>';
+  }).join("");
+
+  return '<div class="card" id="emp-form" data-emp-id="'+e.id+'"><h2>'+(isNew?"Nuovo dipendente":"Modifica dipendente")+'</h2>'+
+    '<div class="grid cols-2" style="margin-top:10px;">'+
+      '<label class="field">Nome<input type="text" id="ef-nome" value="'+escapeHtml(e.nome)+'" placeholder="Nome e cognome"></label>'+
+      '<label class="field">Turno preferito<select id="ef-pref"><option value="indifferente"'+(e.turnoPreferito==="indifferente"?" selected":"")+'>Indifferente</option><option value="mattina"'+(e.turnoPreferito==="mattina"?" selected":"")+'>Mattina</option><option value="pomeriggio"'+(e.turnoPreferito==="pomeriggio"?" selected":"")+'>Pomeriggio</option></select></label>'+
+    '</div>'+
+    '<div class="grid cols-2" style="margin-top:12px;">'+
+      '<label class="field">Tipo contratto<select id="ef-tipo"><option value="fisso"'+(e.tipoContratto==="chiamata"?"":" selected")+'>Ore fisse</option><option value="chiamata"'+(e.tipoContratto==="chiamata"?" selected":"")+'>A chiamata</option></select></label>'+
+      '<div class="field" style="justify-content:flex-end;font-weight:500;color:var(--ink-muted);">A chiamata: nessuna soglia minima da rispettare; viene usato solo per coprire i buchi rimasti dopo chi ha un contratto a ore fisse.</div>'+
+    '</div>'+
+    '<div class="grid cols-2" style="margin-top:12px;">'+
+      '<label class="field" id="ef-ore-label">'+(e.tipoContratto==="chiamata"?"Tetto ore settimanali (facoltativo)":"Ore a contratto / settimana")+'<input type="number" min="0" id="ef-ore" value="'+e.oreContratto+'"></label>'+
+      '<label class="field">Straordinario tollerato (ore/sett.)<input type="number" min="0" id="ef-straord" value="'+e.straordinario+'"></label>'+
+    '</div>'+
+    '<div style="margin-top:14px;"><div class="field" style="margin-bottom:8px;">Ruoli coperti</div><div style="display:flex;gap:16px;flex-wrap:wrap;">'+roleBoxes+'</div></div>'+
+    '<label class="check" style="margin-top:14px;"><input type="checkbox" id="ef-spezzati" '+(e.spezzatiOk?"checked":"")+'> Può fare turni spezzati (mattina e pomeriggio nello stesso giorno)</label>'+
+    '<div style="margin-top:16px;"><div class="field" style="margin-bottom:8px;">Disponibilità settimanale</div>'+
+      '<div class="avail-grid">'+availHeader+mattinaRow+pomeriggioRow+'</div>'+
+    '</div>'+
+    '<div class="btn-row" style="margin-top:18px;"><button class="btn btn-primary" id="btn-save-emp">Salva</button><button class="btn btn-ghost" id="btn-cancel-emp">Annulla</button></div>'+
+  '</div>';
+}
+function defaultAvail(){
+  var o={}; DAYS.forEach(function(d){ o[d]={mattina:true,pomeriggio:true}; }); return o;
+}
+
+/* ---------- TURNI ---------- */
+function renderTurni(){
+  var wk = state.weeks[currentWeek];
+  var html = '<div class="week-bar no-print">'+
+    '<button class="btn btn-sm" id="week-prev">← Settimana prec.</button>'+
+    '<input type="date" id="week-pick" value="'+currentWeek+'">'+
+    '<button class="btn btn-sm" id="week-next">Settimana succ. →</button>'+
+    '<div class="spacer"></div>'+
+    '<button class="btn btn-primary" id="btn-generate">'+(wk&&wk.assign?"Rigenera turni":"Genera turni")+'</button>'+
+    (wk&&wk.assign?'<button class="btn btn-primary" id="btn-convalida">✓ Convalida modifiche</button><button class="btn" id="btn-print">Stampa completa</button><button class="btn" id="btn-print-planner">Esporta planner (PDF)</button>':'')+
+  '</div>';
+
+  html += '<div class="print-only-header"><h2>'+escapeHtml(state.settings.barName)+' — turni '+fmtDateLabel(currentWeek)+' – '+fmtDateLabel(addDays(currentWeek,6))+'</h2></div>';
+
+  html += '<div class="card no-print" id="assenze-card"><h2>Assenze per la settimana del '+fmtDateLabel(currentWeek)+' – '+fmtDateLabel(addDays(currentWeek,6))+'</h2>'+
+    '<div class="card-desc">Spunta chi è malato o assente per l’intera settimana: verrà escluso automaticamente dalla generazione.</div>'+
+    '<div class="assenze-list">'+
+      (state.employees.length? state.employees.map(function(e){
+        var checked = wk && wk.assenze && wk.assenze[e.id];
+        return '<label class="assenza-chip"><input type="checkbox" data-assenza="'+e.id+'" '+(checked?"checked":"")+'>'+escapeHtml(e.nome)+'</label>';
+      }).join("") : '<span class="empty-note" style="border:none;padding:0;">Aggiungi prima il personale nella scheda “Personale”.</span>')+
+    '</div></div>';
+
+  if(!state.employees.length){
+    return html + '<div class="empty-note">Nessun dipendente configurato: vai su “Personale” per aggiungerne.</div>';
+  }
+
+  if(!wk || !wk.assign){
+    return html + '<div class="empty-note">Premi “Genera turni” per calcolare la copertura della settimana.</div>';
+  }
+
+  if(wk.gaps && wk.gaps.length){
+    var daPrisolvere = wk.gaps.filter(function(g){ return g.livello!=="accettato"; });
+    var accettati = wk.gaps.filter(function(g){ return g.livello==="accettato"; });
+    if(daPrisolvere.length){
+      html += '<div class="gap-banner hide-in-planner-print"><strong>'+daPrisolvere.length+' turno/i scoperto/i da risolvere</strong> — cucina e i giorni di priorità 1 e 2 (vedi Impostazioni) vengono coperti per primi; qui nessun dipendente idoneo era disponibile entro il monte-ore tollerato o il limite di ore giornaliere:<ul>'+
+        daPrisolvere.map(function(g){ return '<li>'+(g.livello==="critico"?"🔴 ":"🟠 ")+escapeHtml(g.msg)+'</li>'; }).join("")+'</ul></div>';
+    }
+    if(accettati.length){
+      html += '<div class="card hide-in-planner-print" style="background:var(--surface-2);border-style:dashed;"><h2 style="font-size:.95rem;">'+accettati.length+' turno/i di sala lasciati scoperti nei giorni feriali</h2>'+
+        '<div class="card-desc" style="margin-bottom:8px;">Per le priorità impostate, sui giorni non di punta si accetta di scoprire la sala pur di garantire cucina e banco:</div>'+
+        '<ul style="margin:0;padding-left:18px;font-size:.84rem;color:var(--ink-muted);">'+accettati.map(function(g){ return '<li>'+escapeHtml(g.msg)+'</li>'; }).join("")+'</ul></div>';
+    }
+  }
+
+  html += '<div class="card-desc no-print" style="margin:-6px 0 10px;">I menu a tendina permettono di assegnare manualmente chiunque, anche chi non risponde ai criteri normali (contrassegnato “fuori ruolo”). La generazione automatica continua invece a rispettare sempre tutte le regole.</div>';
+  html += '<div class="table-wrap"><table class="sched-table"><thead><tr><th></th>'+
+    DAYS.map(function(d){
+      var picco = state.settings.giorniPicco[d];
+      return '<th>'+DAY_LABELS[d]+(picco?' <span class="pill pill-warning" style="margin-left:4px;">picco</span>':'')+'<div style="font-weight:400;text-transform:none;font-size:.7rem;">'+fmtDateLabel(addDays(currentWeek,DAYS.indexOf(d)))+'</div></th>';
+    }).join("")+
+  '</tr></thead><tbody>';
+
+  SLOT_ORDER.forEach(function(slotKey){
+    html += '<tr><td class="role-col">'+SLOT_LABELS[slotKey]+'</td>';
+    DAYS.forEach(function(day){
+      html += '<td class="slot-cell">'+renderSlotCell(day, slotKey, wk)+'</td>';
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+
+  html += renderOreSettimanali(wk, currentWeek);
+  return html;
+}
+
+function eligibleForSlotKey(slotKey){
+  if(slotKey==="cuoco") return function(e){ return e.ruoli.cuoco_capo||e.ruoli.cuoco_riserva; };
+  if(slotKey==="banco_mattina"||slotKey==="banco_pomeriggio") return function(e){ return e.ruoli.banco; };
+  return function(e){ return e.ruoli.sala; };
+}
+function roleClassFor(slotKey){
+  if(slotKey==="cuoco") return "";
+  if(slotKey.indexOf("banco")===0) return "role-banco";
+  return "role-sala";
+}
+
+function buildOverrideOptions(filter, selectedId){
+  var eligibleOpts = state.employees.filter(filter);
+  var otherOpts = state.employees.filter(function(e){ return !filter(e); });
+  var html = '<optgroup label="Idonei per questo turno">'+eligibleOpts.map(function(e){
+    return '<option value="'+e.id+'"'+(e.id===selectedId?" selected":"")+'>'+escapeHtml(e.nome)+'</option>';
+  }).join("")+'</optgroup>';
+  if(otherOpts.length){
+    html += '<optgroup label="Altri dipendenti (fuori criteri — solo manuale)">'+otherOpts.map(function(e){
+      return '<option value="'+e.id+'"'+(e.id===selectedId?" selected":"")+'>'+escapeHtml(e.nome)+'</option>';
+    }).join("")+'</optgroup>';
+  }
+  return {html:html, isOutOfCriteria: !!selectedId && eligibleOpts.every(function(e){return e.id!==selectedId;})};
+}
+
+function renderSlotCell(day, slotKey, wk){
+  var filter = eligibleForSlotKey(slotKey);
+  if(slotKey==="cuoco"){
+    var c = wk.assign[day].cuoco;
+    var ov = buildOverrideOptions(filter, c?c.empId:null);
+    var opts = ov.html + '<option value=""'+(!c?" selected":"")+'>— nessuno —</option>';
+    return '<div class="slot-people"><div class="slot-person'+(c?"":" slot-person-empty")+'">'+
+      '<select data-override="'+day+'|'+slotKey+'|0">'+opts+'</select>'+
+      (ov.isOutOfCriteria?'<span class="pill pill-warning" style="margin-top:2px;">fuori ruolo</span>':'')+
+      (c?'<div class="ptime mono">'+c.inizio+'–'+c.fine+' · cucina fino '+c.chiusuraCucina+'</div>':'<div class="ptime mono" style="color:var(--danger);">nessun cuoco</div>')+
+      '</div></div>';
+  }
+  var slotDef = getSlotsForDay(state.settings, day).find(function(s){ return s.key===slotKey; });
+  var needed = slotDef ? Number(slotDef.count)||0 : 0;
+  var arr = wk.assign[day][slotKey] || [];
+  var rowsCount = Math.max(arr.length, needed); // se needed=0 e nessuno assegnato: cella vuota, nulla da mostrare
+  var rc = roleClassFor(slotKey);
+  var rows = [];
+  for(var i=0;i<rowsCount;i++){
+    var a = arr[i] || null;
+    var ov = buildOverrideOptions(filter, a?a.empId:null);
+    var opts = ov.html + '<option value=""'+(!a?" selected":"")+'>— nessuno —</option>';
+    var defInizio = slotDef?slotDef.inizio:"";
+    var defFine = slotDef?slotDef.fine:"";
+    rows.push('<div class="slot-person '+(a?rc:"slot-person-empty")+'"><select data-override="'+day+'|'+slotKey+'|'+i+'" data-default-inizio="'+defInizio+'" data-default-fine="'+defFine+'">'+opts+'</select>'+
+      (ov.isOutOfCriteria?'<span class="pill pill-warning" style="margin-top:2px;">fuori ruolo</span>':'')+
+      (a?'<div class="ptime mono">'+a.inizio+'–'+a.fine+'</div>':'<div class="ptime mono" style="color:var(--danger);">scoperto</div>')+
+      '</div>');
+  }
+  if(!rows.length) return '<div class="slot-empty">Scoperto</div>';
+  return '<div class="slot-people">'+rows.join("")+'</div>';
+}
+
+function renderOreSettimanali(wk, weekStart){
+  var rollingOT = state.settings.paritaStraordinariEnabled ? rollingOvertimeMap(weekStart) : null;
+  var rows = state.employees.map(function(e){
+    var h = wk.hoursWorked[e.id]||0;
+    var target = Number(e.oreContratto)||0, tol = Number(e.straordinario)||0, ceil = target+tol;
+    var isChiamata = e.tipoContratto==="chiamata";
+    var stato, cls, barColor;
+    if(isChiamata){
+      if(ceil>0 && h > ceil+0.01){ stato="Oltre il tetto"; cls="pill-danger"; barColor="var(--danger)"; }
+      else if(h>0.01){ stato="A chiamata"; cls="pill-teal"; barColor="var(--teal)"; }
+      else { stato="Non impiegato"; cls=""; barColor="var(--border)"; }
+    } else {
+      if(h > ceil+0.01){ stato="Oltre tolleranza"; cls="pill-danger"; barColor="var(--danger)"; }
+      else if(h > target+0.01){ stato="Straordinario"; cls="pill-warning"; barColor="var(--warning)"; }
+      else if(h < target-0.01){ stato="Sotto contratto"; cls="pill-warning"; barColor="var(--warning)"; }
+      else { stato="In linea"; cls="pill-success"; barColor="var(--success)"; }
+    }
+    var pct = ceil>0 ? Math.max(0,Math.min(100,(h/ceil)*100)) : (h>0?100:0);
+    var oreCell = '<div class="mono" style="font-weight:700;">'+h.toFixed(1)+' h</div>'+
+      '<div style="height:6px;width:96px;border-radius:99px;background:var(--surface-2);overflow:hidden;margin-top:5px;"><div style="height:100%;width:'+pct.toFixed(0)+'%;background:'+barColor+';"></div></div>';
+    var contrattoCell = isChiamata ? '<span style="font-style:italic;color:var(--ink-muted);">a chiamata</span>' : target+' h';
+    var straordCell = isChiamata ? (ceil>0? 'tetto '+ceil+' h' : 'nessun tetto') : '+'+tol+' h';
+    var rollCell = '';
+    if(rollingOT){
+      var ro = rollingOT[e.id]||0;
+      rollCell = '<td class="mono">'+(ro>0.01?('<span class="pill pill-warning">'+ro.toFixed(1)+' h</span>'):'<span style="color:var(--ink-muted);">0 h</span>')+'</td>';
+    }
+    return '<tr><td>'+escapeHtml(e.nome)+'</td><td>'+oreCell+'</td><td class="mono">'+contrattoCell+'</td><td class="mono">'+straordCell+'</td>'+rollCell+'<td>'+(cls?'<span class="pill '+cls+'">'+stato+'</span>':'<span class="pill" style="background:var(--surface-2);color:var(--ink-muted);">'+stato+'</span>')+'</td></tr>';
+  }).join("");
+  var rollHeader = rollingOT ? '<th>Straord. ultime '+(Number(state.settings.paritaStraordinariFinestra)||4)+' sett.</th>' : '';
+  return '<div class="card hide-in-planner-print" style="margin-top:18px;"><h2>Ore assegnate rispetto al contratto</h2><div class="card-desc">A colpo d’occhio: quante ore fa ciascuno questa settimana rispetto alle ore concordate'+(rollingOT?', e quanto straordinario ha già accumulato di recente (usato per il pareggiamento — vedi Impostazioni)':'')+'.</div>'+
+    '<div class="table-wrap"><table><thead><tr><th>Dipendente</th><th>Ore assegnate</th><th>Contratto</th><th>Straord./tetto</th>'+rollHeader+'<th>Stato</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+}
+
+/* ---------- eventi ---------- */
+function wireEvents(){
+  document.querySelectorAll("[data-tab]").forEach(function(b){
+    b.addEventListener("click", function(){ activeTab = b.getAttribute("data-tab"); editingEmpId=null; render(); });
+  });
+
+  // impostazioni
+  document.querySelectorAll("[data-setting]").forEach(function(inp){
+    inp.addEventListener("change", function(){
+      var f = inp.getAttribute("data-setting");
+      state.settings[f] = inp.type==="number" ? Number(inp.value) : inp.value;
+      saveState();
+    });
+  });
+  document.querySelectorAll("[data-setting-bool]").forEach(function(inp){
+    inp.addEventListener("change", function(){
+      state.settings[inp.getAttribute("data-setting-bool")] = inp.checked;
+      saveState();
+    });
+  });
+  document.querySelectorAll("[data-picco-day]").forEach(function(inp){
+    inp.addEventListener("change", function(){
+      state.settings.giorniPicco[inp.getAttribute("data-picco-day")] = inp.checked;
+      saveState();
+    });
+  });
+  document.querySelectorAll("[data-priorita2-day]").forEach(function(inp){
+    inp.addEventListener("change", function(){
+      state.settings.giorniPriorita2[inp.getAttribute("data-priorita2-day")] = inp.checked;
+      saveState();
+    });
+  });
+  var resetBtn = document.getElementById("btn-reset-settings");
+  if(resetBtn) resetBtn.addEventListener("click", function(){
+    if(confirm("Ripristinare tutte le impostazioni ai valori di default?")){
+      state.settings = defaultSettings(); saveState(); render();
+    }
+  });
+  var exportBtn = document.getElementById("btn-export");
+  if(exportBtn) exportBtn.addEventListener("click", function(){
+    var box = document.getElementById("export-box");
+    var ta = document.getElementById("export-text");
+    ta.value = JSON.stringify(state, null, 2);
+    box.style.display = "block";
+    ta.focus(); ta.select();
+  });
+  var copyBtn = document.getElementById("btn-copy-export");
+  if(copyBtn) copyBtn.addEventListener("click", function(){
+    var ta = document.getElementById("export-text");
+    ta.focus(); ta.select();
+    var ok = false;
+    try{ if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(ta.value); ok = true; } }catch(e){}
+    if(!ok){ try{ ok = document.execCommand("copy"); }catch(e){} }
+    copyBtn.textContent = ok ? "Copiato ✓" : "Seleziona e copia con Ctrl/Cmd+C";
+    setTimeout(function(){ copyBtn.textContent = "Copia negli appunti"; }, 2000);
+  });
+  var importToggle = document.getElementById("btn-import-toggle");
+  if(importToggle) importToggle.addEventListener("click", function(){
+    var box = document.getElementById("import-box");
+    box.style.display = box.style.display==="none" ? "block" : "none";
+  });
+  var doImport = document.getElementById("btn-do-import");
+  if(doImport) doImport.addEventListener("click", function(){
+    var txt = document.getElementById("import-text").value.trim();
+    if(!txt) return;
+    try{
+      var parsed = JSON.parse(txt);
+      if(!parsed || typeof parsed!=="object" || !parsed.settings || !parsed.employees) throw new Error("formato non valido");
+      if(!confirm("Questo sostituirà tutti i dati attuali (personale, impostazioni, turni salvati). Continuare?")) return;
+      parsed.isSeed = false;
+      state = parsed;
+      if(!state.weeks) state.weeks = {};
+      saveState(); render();
+    }catch(e){ alert("Il testo incollato non è un backup valido: "+e.message); }
+  });
+
+  // personale
+  var dismissSeed = document.getElementById("btn-dismiss-seed");
+  if(dismissSeed) dismissSeed.addEventListener("click", function(){ state.isSeed=false; saveState(); render(); });
+  var addEmp = document.getElementById("btn-add-emp");
+  if(addEmp) addEmp.addEventListener("click", function(){ editingEmpId="__new__"; render(); });
+  document.querySelectorAll("[data-edit-emp]").forEach(function(b){
+    b.addEventListener("click", function(){ editingEmpId = b.getAttribute("data-edit-emp"); render(); });
+  });
+  document.querySelectorAll("[data-del-emp]").forEach(function(b){
+    b.addEventListener("click", function(){
+      var id = b.getAttribute("data-del-emp");
+      if(confirm("Eliminare questo dipendente?")){
+        state.employees = state.employees.filter(function(e){return e.id!==id;});
+        saveState(); render();
+      }
+    });
+  });
+  var saveEmpBtn = document.getElementById("btn-save-emp");
+  if(saveEmpBtn) saveEmpBtn.addEventListener("click", function(){
+    var form = document.getElementById("emp-form");
+    var id = form.getAttribute("data-emp-id");
+    var nome = document.getElementById("ef-nome").value.trim();
+    if(!nome){ alert("Inserisci un nome."); return; }
+    var ruoli = {cuoco_capo:false,cuoco_riserva:false,banco:false,sala:false};
+    form.querySelectorAll('input[name="ruolo"]:checked').forEach(function(cb){ ruoli[cb.value]=true; });
+    if(!ruoli.cuoco_capo && !ruoli.cuoco_riserva && !ruoli.banco && !ruoli.sala){ alert("Seleziona almeno un ruolo."); return; }
+    var disponibilita = {};
+    DAYS.forEach(function(d){
+      disponibilita[d] = {
+        mattina: form.querySelector('[data-avail="'+d+'|mattina"]').checked,
+        pomeriggio: form.querySelector('[data-avail="'+d+'|pomeriggio"]').checked
+      };
+    });
+    var emp = {
+      id: id==="__new__" ? uid() : id,
+      nome: nome,
+      ruoli: ruoli,
+      oreContratto: Number(document.getElementById("ef-ore").value)||0,
+      straordinario: Number(document.getElementById("ef-straord").value)||0,
+      turnoPreferito: document.getElementById("ef-pref").value,
+      tipoContratto: document.getElementById("ef-tipo").value,
+      spezzatiOk: document.getElementById("ef-spezzati").checked,
+      disponibilita: disponibilita
+    };
+    var idx = state.employees.findIndex(function(e){return e.id===emp.id;});
+    if(idx===-1) state.employees.push(emp); else state.employees[idx]=emp;
+    editingEmpId = null;
+    saveState(); render();
+  });
+  var cancelEmpBtn = document.getElementById("btn-cancel-emp");
+  if(cancelEmpBtn) cancelEmpBtn.addEventListener("click", function(){ editingEmpId=null; render(); });
+  var tipoSel = document.getElementById("ef-tipo");
+  if(tipoSel) tipoSel.addEventListener("change", function(){
+    var lbl = document.getElementById("ef-ore-label");
+    lbl.firstChild.textContent = tipoSel.value==="chiamata" ? "Tetto ore settimanali (facoltativo)" : "Ore a contratto / settimana";
+  });
+
+  // turni
+  var weekPick = document.getElementById("week-pick");
+  if(weekPick) weekPick.addEventListener("change", function(){ currentWeek = mondayOf(weekPick.value); render(); });
+  var weekPrev = document.getElementById("week-prev");
+  if(weekPrev) weekPrev.addEventListener("click", function(){ currentWeek = addDays(currentWeek,-7); render(); });
+  var weekNext = document.getElementById("week-next");
+  if(weekNext) weekNext.addEventListener("click", function(){ currentWeek = addDays(currentWeek,7); render(); });
+  document.querySelectorAll("[data-assenza]").forEach(function(cb){
+    cb.addEventListener("change", function(){
+      var wk = state.weeks[currentWeek] || {weekStart:currentWeek, assenze:{}};
+      wk.assenze = wk.assenze || {};
+      wk.assenze[cb.getAttribute("data-assenza")] = cb.checked;
+      state.weeks[currentWeek] = wk;
+      saveState();
+    });
+  });
+  var genBtn = document.getElementById("btn-generate");
+  if(genBtn) genBtn.addEventListener("click", function(){ generateSchedule(currentWeek); render(); });
+  var convalidaBtn = document.getElementById("btn-convalida");
+  if(convalidaBtn) convalidaBtn.addEventListener("click", function(){
+    var wkNow = state.weeks[currentWeek];
+    if(wkNow) recomputeHours(wkNow);
+    clearTimeout(saveTimer);
+    if(USE_API){
+      doApiSave();
+    } else {
+      saveState();
+    }
+    render();
+    var b = document.getElementById("btn-convalida");
+    if(b){
+      var original = b.textContent;
+      b.textContent = "✓ Convalidato";
+      b.disabled = true;
+      setTimeout(function(){ if(b && b.isConnected){ b.textContent = original; b.disabled = false; } }, 1400);
+    }
+  });
+  var printBtn = document.getElementById("btn-print");
+  if(printBtn) printBtn.addEventListener("click", function(){ window.print(); });
+  var printPlannerBtn = document.getElementById("btn-print-planner");
+  if(printPlannerBtn) printPlannerBtn.addEventListener("click", function(){
+    document.body.classList.add("planner-print-mode");
+    var cleaned = false;
+    function cleanup(){
+      if(cleaned) return; cleaned = true;
+      document.body.classList.remove("planner-print-mode");
+      window.removeEventListener("afterprint", cleanup);
+    }
+    window.addEventListener("afterprint", cleanup);
+    setTimeout(function(){ window.print(); }, 30);
+    setTimeout(cleanup, 8000);
+  });
+  document.querySelectorAll("[data-override]").forEach(function(sel){
+    sel.addEventListener("change", function(){
+      var parts = sel.getAttribute("data-override").split("|");
+      var day = parts[0], slotKey = parts[1], idx = Number(parts[2]);
+      var wk = state.weeks[currentWeek];
+      var newVal = sel.value || null;
+      if(slotKey==="cuoco"){
+        var settings = state.settings;
+        if(!newVal){ wk.assign[day].cuoco = null; }
+        else {
+          var e = empById(newVal);
+          var tipo = e.ruoli.cuoco_capo ? "capo" : "riserva";
+          var fine = tipo==="capo" ? settings.fineTurnoCuocoCapo : settings.fineTurnoCuocoRiserva;
+          var chiusuraCucina = addMin(fine, -settings.minutiCucinaPrimaFineTurno);
+          wk.assign[day].cuoco = {empId:newVal, tipo:tipo, inizio:settings.cuocoInizio, fine:fine, chiusuraCucina:chiusuraCucina};
+        }
+      } else {
+        var list = wk.assign[day][slotKey] = wk.assign[day][slotKey] || [];
+        if(newVal){
+          if(list[idx]){ list[idx].empId = newVal; }
+          else {
+            var defInizio = sel.getAttribute("data-default-inizio") || state.settings.apertura;
+            var defFine = sel.getAttribute("data-default-fine") || state.settings.chiusuraFeriale;
+            list[idx] = {empId:newVal, inizio:defInizio, fine:defFine};
+          }
+        } else if(list[idx]){
+          list.splice(idx,1);
+        }
+      }
+      recomputeHours(wk);
+      saveState(); render();
+    });
+  });
+}
+
+function recomputeHours(wk){
+  var hoursWorked = {};
+  state.employees.forEach(function(e){ hoursWorked[e.id]=0; });
+  DAYS.forEach(function(day){
+    var d = wk.assign[day];
+    if(!d) return;
+    if(d.cuoco && d.cuoco.empId) hoursWorked[d.cuoco.empId] = (hoursWorked[d.cuoco.empId]||0) + durH(d.cuoco.inizio,d.cuoco.fine);
+    ["banco_mattina","sala_mattina","banco_pomeriggio","sala_pomeriggio"].forEach(function(k){
+      (d[k]||[]).forEach(function(a){ if(a.empId) hoursWorked[a.empId] = (hoursWorked[a.empId]||0) + durH(a.inizio,a.fine); });
+    });
+  });
+  wk.hoursWorked = hoursWorked;
+}
+
+boot();
+})();
+</script>
+
+</body>
+</html>

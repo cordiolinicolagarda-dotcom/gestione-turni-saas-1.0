@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin — Gestione turni</title>
+<style>
+  :root{--ink:#1c1f26;--ink-muted:#6b7280;--surface:#ffffff;--surface-2:#f4f5f7;--accent:#2d6a4f;--danger:#b3261e;--border:#e2e4e8;}
+  *{box-sizing:border-box;}
+  body{margin:0;min-height:100vh;background:var(--surface-2);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:var(--ink);padding:32px 20px;}
+  .wrap{max-width:920px;margin:0 auto;}
+  h1{font-size:1.4rem;margin:0 0 4px;}
+  p.sub{color:var(--ink-muted);font-size:.9rem;margin:0 0 24px;}
+  table{width:100%;border-collapse:collapse;background:var(--surface);border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06);}
+  th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--border);font-size:.88rem;}
+  th{background:var(--surface-2);color:var(--ink-muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em;}
+  tr:last-child td{border-bottom:none;}
+  .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:.75rem;font-weight:600;}
+  .pill-ok{background:#e7f5ec;color:var(--accent);}
+  .pill-empty{background:#fdf3e7;color:#9a6300;}
+  .actions a, .actions button{font-size:.82rem;text-decoration:none;color:var(--accent);border:none;background:none;cursor:pointer;padding:0;margin-right:14px;font-family:inherit;}
+  .actions button.danger{color:var(--danger);}
+  .empty{padding:40px;text-align:center;color:var(--ink-muted);}
+  .note{margin-top:20px;font-size:.82rem;color:var(--ink-muted);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Aziende registrate</h1>
+  <p class="sub">{{ righe|length }} account totali. "Accedi come" ti fa entrare nell'app esattamente come quel cliente, per aiutarlo a configurare i turni — i cambiamenti che fai sono reali per il suo account.</p>
+
+  {% if righe %}
+  <table>
+    <thead>
+      <tr>
+        <th>Attività</th>
+        <th>Email</th>
+        <th>Creata il</th>
+        <th>Dati</th>
+        <th>Ultimo aggiornamento</th>
+        <th>Azioni</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in righe %}
+      <tr>
+        <td>{{ r.azienda.nome }}</td>
+        <td>{{ r.azienda.email }}</td>
+        <td>{{ r.azienda.creato_il.strftime('%d/%m/%Y %H:%M') if r.azienda.creato_il else '—' }}</td>
+        <td>
+          {% if r.ha_dati %}
+            <span class="pill pill-ok">presenti (v{{ r.versione }})</span>
+          {% else %}
+            <span class="pill pill-empty">nessun dato</span>
+          {% endif %}
+        </td>
+        <td>{{ r.aggiornato_il.strftime('%d/%m/%Y %H:%M') if r.aggiornato_il else '—' }}</td>
+        <td class="actions">
+          <a href="/admin/{{ token }}/accedi-come/{{ r.azienda.id }}">Accedi come</a>
+          <form method="post" action="/admin/{{ token }}/elimina/{{ r.azienda.id }}" style="display:inline" onsubmit="return confirm('Eliminare definitivamente {{ r.azienda.nome }} e tutti i suoi dati?');">
+            <button type="submit" class="danger">Elimina</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">Nessuna azienda registrata ancora.</div>
+  {% endif %}
+
+  <p class="note">Questa pagina è protetta solo dal codice segreto nell'indirizzo — non condividerlo. Per tornare qui dopo aver usato "Accedi come", riapri semplicemente questo stesso link.</p>
+</div>
+</body>
+</html>

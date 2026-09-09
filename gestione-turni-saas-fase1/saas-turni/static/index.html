@@ -116,6 +116,15 @@ label.field input[type="text"],label.field input[type="number"],label.field inpu
   border:1px solid var(--border);background:var(--bg);color:var(--ink);border-radius:8px;padding:8px 10px;font-weight:500;font-size:.9rem;
 }
 label.field input:focus,label.field select:focus{border-color:var(--accent);}
+.btn-row > input[type="text"],.btn-row > input[type="date"],.btn-row > select{
+  border:1px solid var(--border);background:var(--bg);color:var(--ink);border-radius:8px;padding:9px 10px;font-weight:500;font-size:.86rem;
+}
+.hint{color:var(--ink-muted);}
+.hero-logo{max-height:56px;max-width:180px;border-radius:8px;display:block;margin-bottom:10px;}
+.logo-preview{max-height:80px;max-width:240px;border:1px solid var(--border);border-radius:8px;padding:6px;background:var(--bg);}
+.sugg-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:7px 0;border-bottom:1px solid var(--border);}
+.sugg-row:last-child{border-bottom:none;}
+.sugg-data{min-width:132px;font-weight:700;font-size:.84rem;}
 .check{display:flex;align-items:center;gap:8px;font-size:.86rem;font-weight:500;color:var(--ink);}
 .check input{width:16px;height:16px;accent-color:var(--accent);}
 
@@ -300,6 +309,16 @@ function defaultOrariCucina(cuocoInizio, fineTurnoCuocoCapo, fineTurnoCuocoRiser
   return out;
 }
 
+function defaultAzienda(){
+  return {
+    ragioneSociale:"", piva:"", codiceFiscale:"", pec:"", codiceSdi:"",
+    indirizzo:"", cap:"", comune:"", provincia:"", regione:"",
+    telefono:"", email:"",
+    logo:null,               // immagine in formato data:URI, ridimensionata al salvataggio
+    eventiLocali:[]          // [{mmdd:"06-29", nome:"Sagra del paese"}] — ricorrono ogni anno
+  };
+}
+
 function defaultSettings(){
   var apertura = "08:00", chiusuraFeriale = "21:00", chiusuraWeekend = "22:00";
   var puntoMedioFeriale = "14:30", puntoMedioWeekend = "15:00";
@@ -329,8 +348,9 @@ function defaultSettings(){
     oreGiornaliereMax:10,
     paritaStraordinariEnabled:true,
     paritaStraordinariFinestra:4,
-    prioritaProfilo:"9days",
     ordinePriorita:["cucina","banco","sala"],
+    configurazioniPriorita:[],
+    azienda: defaultAzienda(),
     orariGiorni: defaultOrariGiorni(apertura, chiusuraFeriale, chiusuraWeekend, puntoMedioFeriale, puntoMedioWeekend),
     cucinaSegueFasce:false,
     orariCucina: defaultOrariCucina(cuocoInizio, fineTurnoCuocoCapo, fineTurnoCuocoRiserva),
@@ -353,23 +373,59 @@ var DEPARTMENTS = ["cucina","banco","sala"];
 var DEPARTMENT_LABELS = {cucina:"Cucina", banco:"Banco", sala:"Sala"};
 var BANDE = ["mattina","pomeriggio","sera"];
 var BANDA_LABELS = {mattina:"Mattina", pomeriggio:"Pomeriggio", sera:"Sera"};
-var PRIORITY_PRESETS = {
-  "9days": (function(){
-    var giorniPicco = {lunedi:true,martedi:false,mercoledi:false,giovedi:false,venerdi:false,sabato:true,domenica:true};
-    var giorniPriorita2 = {lunedi:false,martedi:false,mercoledi:false,giovedi:false,venerdi:true,sabato:false,domenica:false};
-    return {
-      label: "Affluenza Arilicense (cucina → banco → sala)",
-      ordinePriorita: ["cucina","banco","sala"],
-      giorniPicco: giorniPicco,
-      giorniPriorita2: giorniPriorita2,
-      prioritaFasce: deriveFasceFromDayTiers(giorniPicco, giorniPriorita2)
-    };
-  })()
-};
+/* I livelli restano numerici nel modello dati (1 è il più protetto: tutto il motore
+   ordina per numero crescente), ma in pagina si leggono a parole. Un responsabile di
+   sala non deve ricordarsi se "1" vuol dire tanto o poco. */
+var TIER_LABELS = {1:"Alta", 2:"Media", 3:"Bassa"};
+var TIER_VALUES = [1,2,3];
+var cfgSelezionataId = null;   // quale configurazione salvata è scelta nella tendina
+function tierLabel(t){ return TIER_LABELS[Number(t)] || TIER_LABELS[3]; }
+
 function normalizePriorityOrder(order){
   var out = (order||[]).filter(function(d){ return DEPARTMENTS.indexOf(d)!==-1; });
   DEPARTMENTS.forEach(function(d){ if(out.indexOf(d)===-1) out.push(d); });
   return out.slice(0,3);
+}
+
+/* ---------- configurazioni di priorità salvate dall'utente ----------
+   Non esistono più configurazioni "di fabbrica": ogni attività ha la propria stagionalità
+   e la propria idea di cosa proteggere per primo. Qui si fotografa la configurazione
+   corrente, le si dà un nome e la si richiama quando serve (es. "Estate", "Inverno",
+   "Settimana della sagra"). */
+function istantaneaPriorita(s){
+  var cloneDayMap = function(m){ var o={}; DAYS.forEach(function(d){ o[d]=!!(m&&m[d]); }); return o; };
+  var pf = {};
+  DAYS.forEach(function(d){
+    var src = (s.prioritaFasce && s.prioritaFasce[d]) || {};
+    pf[d] = {
+      mattina: Number(src.mattina)||3,
+      pomeriggio: Number(src.pomeriggio)||3,
+      sera: Number(src.sera)||3
+    };
+  });
+  return {
+    ordinePriorita: normalizePriorityOrder(s.ordinePriorita).slice(),
+    giorniPicco: cloneDayMap(s.giorniPicco),
+    giorniPriorita2: cloneDayMap(s.giorniPriorita2),
+    prioritaFasce: pf
+  };
+}
+function applicaIstantaneaPriorita(s, cfg){
+  var snap = istantaneaPriorita(cfg);
+  s.ordinePriorita = snap.ordinePriorita;
+  s.giorniPicco = snap.giorniPicco;
+  s.giorniPriorita2 = snap.giorniPriorita2;
+  s.prioritaFasce = snap.prioritaFasce;
+}
+function normalizzaConfigurazioni(lista){
+  if(!Array.isArray(lista)) return [];
+  return lista.filter(function(c){ return c && typeof c==="object"; }).map(function(c){
+    var snap = istantaneaPriorita(c);
+    snap.id = c.id || uid();
+    snap.nome = String(c.nome || "Configurazione senza nome");
+    snap.salvataIl = c.salvataIl || null;
+    return snap;
+  });
 }
 
 function seedEmployees(){
@@ -420,9 +476,20 @@ function normalizeState(parsed){
   if(parsed.settings.oreGiornaliereMax===undefined) parsed.settings.oreGiornaliereMax = defaultSettings().oreGiornaliereMax;
   if(parsed.settings.paritaStraordinariEnabled===undefined) parsed.settings.paritaStraordinariEnabled = defaultSettings().paritaStraordinariEnabled;
   if(parsed.settings.paritaStraordinariFinestra===undefined) parsed.settings.paritaStraordinariFinestra = defaultSettings().paritaStraordinariFinestra;
-  if(parsed.settings.prioritaProfilo===undefined) parsed.settings.prioritaProfilo = defaultSettings().prioritaProfilo;
+  delete parsed.settings.prioritaProfilo; // le configurazioni di fabbrica non esistono più
   if(parsed.settings.ordinePriorita===undefined) parsed.settings.ordinePriorita = defaultSettings().ordinePriorita;
   parsed.settings.ordinePriorita = normalizePriorityOrder(parsed.settings.ordinePriorita);
+  parsed.settings.configurazioniPriorita = normalizzaConfigurazioni(parsed.settings.configurazioniPriorita);
+  // anagrafica dell'attività: campo nuovo, si aggiunge senza toccare nulla di esistente
+  var azDef = defaultAzienda();
+  if(!parsed.settings.azienda || typeof parsed.settings.azienda!=="object") parsed.settings.azienda = azDef;
+  Object.keys(azDef).forEach(function(k){
+    if(parsed.settings.azienda[k]===undefined) parsed.settings.azienda[k] = azDef[k];
+  });
+  if(!Array.isArray(parsed.settings.azienda.eventiLocali)) parsed.settings.azienda.eventiLocali = [];
+  parsed.settings.azienda.eventiLocali = parsed.settings.azienda.eventiLocali
+    .filter(function(e){ return e && /^\d{2}-\d{2}$/.test(String(e.mmdd||"")); })
+    .map(function(e){ return {mmdd:String(e.mmdd), nome:String(e.nome||"Evento locale")}; });
   // migrazione: orari per-giorno con doppia fascia (sostituiscono i vecchi orari globali unici come
   // sorgente di verità per la generazione, ma i vecchi campi restano come fallback innocuo altrove)
   if(parsed.settings.orariGiorni===undefined){
@@ -441,6 +508,31 @@ function normalizeState(parsed){
     parsed.settings.prioritaFasce = deriveFasceFromDayTiers(parsed.settings.giorniPicco, parsed.settings.giorniPriorita2);
   }
   if(!Array.isArray(parsed.settings.stagioni)) parsed.settings.stagioni = [];
+  // una stagione con orari propri deve averli per TUTTI i giorni: se ne manca uno, il
+  // giorno scoperto tornerebbe agli orari standard senza che si veda da nessuna parte.
+  var orariBase = defaultOrariGiorni(
+    parsed.settings.apertura || "08:00", parsed.settings.chiusuraFeriale || "21:00",
+    parsed.settings.chiusuraWeekend || "22:00", parsed.settings.puntoMedioFeriale || "14:30",
+    parsed.settings.puntoMedioWeekend || "15:00"
+  );
+  DAYS.forEach(function(d){
+    // un giorno mancante manderebbe in errore mezza app (e il catch riporterebbe ai dati
+    // di esempio, cioè alla perdita di tutto): meglio ricostruirlo in silenzio
+    if(!parsed.settings.orariGiorni[d] || !parsed.settings.orariGiorni[d].fascia1){
+      parsed.settings.orariGiorni[d] = orariBase[d];
+    }
+  });
+  parsed.settings.stagioni.forEach(function(st){
+    if(!st || !st.orariGiorni) return;
+    DAYS.forEach(function(d){
+      var og = st.orariGiorni[d];
+      if(!og || !og.fascia1){
+        st.orariGiorni[d] = JSON.parse(JSON.stringify(parsed.settings.orariGiorni[d]));
+      } else if(og.fascia2===undefined){
+        og.fascia2 = null;
+      }
+    });
+  });
   if(!parsed.settings.deroghe || typeof parsed.settings.deroghe!=="object") parsed.settings.deroghe = {};
   if(parsed.settings.regoleTutela===undefined) parsed.settings.regoleTutela = defaultRegoleTutela();
   var rtDef = defaultRegoleTutela();
@@ -601,12 +693,25 @@ function risolviConflitto(scelta){
     render();
   }
 }
+/* C'è un campo in scrittura in questo momento? */
+function staScrivendo(){
+  var el = document.activeElement;
+  if(!el || !el.tagName) return false;
+  var tag = el.tagName.toLowerCase();
+  if(tag!=="input" && tag!=="select" && tag!=="textarea") return false;
+  var app = document.getElementById("app");
+  return !!(app && app.contains(el));
+}
 function startPolling(){
   clearInterval(pollTimer);
   pollTimer = setInterval(function(){
     // niente sostituzioni mentre si sta modificando qualcosa, o con modifiche non ancora
     // salvate, o con un conflitto già aperto in attesa di una scelta
     if(!USE_API || editingEmpId!==null || modifichePendenti || conflitto) return;
+    // e nemmeno mentre si sta scrivendo in un campo: molti campi (nome della stagione,
+    // ragione sociale, orari) si salvano solo quando si esce dal campo, e un ridisegno
+    // in quel momento cancellerebbe quello che si sta digitando
+    if(staScrivendo()) return;
     fetch("/api/state",{cache:"no-store"}).then(function(r){return r.json();}).then(function(res){
       if(!res) return;
       // se nel frattempo è cambiato il locale (da un'altra scheda) non si mescolano
@@ -793,12 +898,130 @@ function configurazioneDelGiorno(settings, day, dateStr){
     if(der.orari) out.orari = der.orari;
     if(der.priorita) out.priorita = der.priorita;
     if(der.staff){
-      if(der.staff.sala!==undefined && der.staff.sala!==null) out.salaNormale = der.staff.sala;
-      if(der.staff.banco!==undefined && der.staff.banco!==null) out.bancoNormale = der.staff.banco;
+      if(der.staff.sala!==undefined && der.staff.sala!==null){ out.salaNormale = der.staff.sala; out.staffDeroga = true; }
+      if(der.staff.banco!==undefined && der.staff.banco!==null){ out.bancoNormale = der.staff.banco; out.staffDeroga = true; }
     }
   }
   return out;
 }
+
+/* ---------- calendario italiano: giorni di affluenza prevedibile ----------
+   Tutto quello che sta qui è calcolato in locale, senza chiamare nessun servizio
+   esterno: le date fisse sono fisse, e quelle che dipendono dalla Pasqua si calcolano
+   con l'algoritmo di Meeus/Jones/Butcher (calendario gregoriano, valido dal 1583).
+   Le ricorrenze del singolo paese non si possono indovinare: si ricavano dal comune
+   scelto in "La tua azienda" quando è un capoluogo di cui si conosce il patrono, e
+   per il resto le aggiunge l'utente una volta sola (ricorrono poi ogni anno). */
+function pasquaDi(anno){
+  var a = anno % 19, b = Math.floor(anno/100), c = anno % 100;
+  var d = Math.floor(b/4), e = b % 4, f = Math.floor((b+8)/25);
+  var g = Math.floor((b-f+1)/3), h = (19*a + b - d - g + 15) % 30;
+  var i = Math.floor(c/4), k = c % 4;
+  var l = (32 + 2*e + 2*i - h - k) % 7;
+  var m = Math.floor((a + 11*h + 22*l)/451);
+  var mese = Math.floor((h + l - 7*m + 114)/31);
+  var giorno = ((h + l - 7*m + 114) % 31) + 1;
+  return isoDate(new Date(anno, mese-1, giorno));
+}
+function nesimaDomenicaDi(anno, mese1based, n){
+  var d = new Date(anno, mese1based-1, 1);
+  var giorniAllaPrimaDomenica = (7 - d.getDay()) % 7;
+  d.setDate(1 + giorniAllaPrimaDomenica + (n-1)*7);
+  return isoDate(d);
+}
+/* Patroni dei capoluoghi: date stabili e verificabili. Restano comunque suggerimenti,
+   l'utente conferma o ignora. */
+var PATRONI = {
+  "milano":["12-07","Sant’Ambrogio"], "roma":["06-29","Santi Pietro e Paolo"],
+  "napoli":["09-19","San Gennaro"], "torino":["06-24","San Giovanni Battista"],
+  "firenze":["06-24","San Giovanni Battista"], "bologna":["10-04","San Petronio"],
+  "genova":["06-24","San Giovanni Battista"], "palermo":["07-15","Santa Rosalia"],
+  "venezia":["04-25","San Marco"], "bari":["12-06","San Nicola"],
+  "verona":["05-21","San Zeno"], "brescia":["02-15","Santi Faustino e Giovita"],
+  "padova":["06-13","Sant’Antonio"], "trieste":["11-03","San Giusto"],
+  "catania":["02-05","Sant’Agata"], "bergamo":["08-26","Sant’Alessandro"],
+  "trento":["06-26","San Vigilio"], "perugia":["01-29","Sant’Ercolano"],
+  "ancona":["05-04","San Ciriaco"], "cagliari":["10-30","San Saturnino"],
+  "modena":["01-31","San Geminiano"], "parma":["01-13","Sant’Ilario"],
+  "livorno":["05-22","Santa Giulia"], "rimini":["10-04","San Gaudenzo"],
+  "vicenza":["09-08","Madonna di Monte Berico"], "udine":["07-12","Santi Ermacora e Fortunato"],
+  "salerno":["09-21","San Matteo"], "messina":["06-03","Madonna della Lettera"],
+  "siena":["12-01","Sant’Ansano"], "pisa":["06-17","San Ranieri"],
+  "lucca":["07-12","San Paolino"], "assisi":["10-04","San Francesco"]
+};
+/* Le ricorrenze che in un bar o in un ristorante si sentono davvero, al di là del
+   fatto che siano festivi per legge. */
+function suggerimentiCalendario(settings, anno){
+  var out = [];
+  var agg = function(data, nome, tipo, nota){
+    if(!data) return;
+    out.push({data:data, nome:nome, tipo:tipo, nota:nota||""});
+  };
+  // una data fissa entra solo se in quell'anno esiste davvero: "02-29" nel 2027 non
+  // diventerebbe un errore, diventerebbe il 1º marzo — e sarebbe peggio
+  var fissa = function(mmdd, nome, tipo, nota){
+    var mese = Number(String(mmdd).slice(0,2)), giorno = Number(String(mmdd).slice(3,5));
+    if(!giornoEsiste(anno, mese, giorno)) return;
+    agg(anno+"-"+mmdd, nome, tipo, nota);
+  };
+
+  fissa("01-01","Capodanno","nazionale");
+  fissa("01-06","Epifania","nazionale");
+  fissa("02-14","San Valentino","commerciale","Cene di coppia: quasi sempre tutto pieno la sera.");
+  fissa("03-08","Festa della donna","commerciale");
+  fissa("03-19","Festa del papà","commerciale");
+  fissa("04-25","Festa della Liberazione","nazionale");
+  fissa("05-01","Festa dei lavoratori","nazionale");
+  fissa("06-02","Festa della Repubblica","nazionale");
+  fissa("08-15","Ferragosto","nazionale","Punta dell’anno per i locali turistici.");
+  fissa("10-31","Halloween","commerciale");
+  fissa("11-01","Ognissanti","nazionale");
+  fissa("12-08","Immacolata","nazionale","Apre il periodo natalizio: ponte molto frequentato.");
+  fissa("12-24","Vigilia di Natale","nazionale");
+  fissa("12-25","Natale","nazionale");
+  fissa("12-26","Santo Stefano","nazionale");
+  fissa("12-31","San Silvestro","nazionale","Cenone: orari e organico fuori standard.");
+
+  var pasqua = pasquaDi(anno);
+  agg(addDays(pasqua,-47), "Martedì grasso (Carnevale)", "commerciale");
+  agg(pasqua, "Pasqua", "nazionale");
+  agg(addDays(pasqua,1), "Lunedì dell’Angelo (Pasquetta)", "nazionale", "Pranzi fuori e gite: giornata anomala.");
+  agg(nesimaDomenicaDi(anno,5,2), "Festa della mamma", "commerciale", "Pranzo di domenica: il più affollato dell’anno per molti ristoranti.");
+
+  var az = settings.azienda || {};
+  var comune = String(az.comune||"").trim().toLowerCase();
+  if(comune && PATRONI[comune]){
+    fissa(PATRONI[comune][0], PATRONI[comune][1]+" — patrono di "+az.comune, "patrono",
+          "Festa patronale: verifica la data con il comune, in alcuni casi si sposta alla domenica vicina.");
+  }
+  (az.eventiLocali||[]).forEach(function(e){
+    fissa(e.mmdd, e.nome, "locale", "Ricorrenza che hai aggiunto tu: si ripropone ogni anno.");
+  });
+  out.sort(function(a,b){ return a.data < b.data ? -1 : a.data > b.data ? 1 : 0; });
+  return out;
+}
+/* Solo i suggerimenti che servono davvero: da oggi ai prossimi 12 mesi, escludendo
+   le date già impostate a mano. */
+function suggerimentiUtili(settings){
+  var oggi = isoDate(new Date());
+  var anno = Number(oggi.slice(0,4));
+  var limite = isoDate(addDaysDate(new Date(), 366));
+  // tre anni e non due: a fine dicembre la finestra dei 12 mesi arriva al gennaio
+  // dell'anno dopo ancora, e senza questo il Capodanno sparirebbe proprio a dicembre
+  var tutti = suggerimentiCalendario(settings, anno)
+    .concat(suggerimentiCalendario(settings, anno+1))
+    .concat(suggerimentiCalendario(settings, anno+2));
+  var deroghe = settings.deroghe || {};
+  var visti = {};
+  return tutti.filter(function(s){
+    if(s.data < oggi || s.data > limite) return false;
+    if(deroghe[s.data]) return false;
+    if(visti[s.data+"|"+s.nome]) return false;
+    visti[s.data+"|"+s.nome] = true;
+    return true;
+  });
+}
+function addDaysDate(d, n){ var x = new Date(d.getTime()); x.setDate(x.getDate()+n); return x; }
 
 function getSlotsForDay(settings, day, dateStr){
   var cfg = configurazioneDelGiorno(settings, day, dateStr);
@@ -806,8 +1029,10 @@ function getSlotsForDay(settings, day, dateStr){
   var og = cfg.orari;
   var f1 = og.fascia1;
   var picco = !!settings.giorniPicco[day];
-  var salaMattina = picco ? settings.salaPicco : cfg.salaNormale;
-  var bancoMattina = picco ? settings.bancoPicco : cfg.bancoNormale;
+  // il rinforzo del giorno di picco vale finché non c'è una deroga che dice diversamente:
+  // una data speciale è più specifica di una regola settimanale, e deve vincere
+  var salaMattina = cfg.staffDeroga ? cfg.salaNormale : (picco ? settings.salaPicco : cfg.salaNormale);
+  var bancoMattina = cfg.staffDeroga ? cfg.bancoNormale : (picco ? settings.bancoPicco : cfg.bancoNormale);
   var slots = [];
   if(!settings.cucinaSegueFasce){
     slots.push({key:"cuoco", label:"Cuoco", turno:"mattina", count:1, inizio:settings.cuocoInizio, fine:null, isCuoco:true});
@@ -817,15 +1042,17 @@ function getSlotsForDay(settings, day, dateStr){
   }
   slots.push({key:"banco_mattina", label:"Banco", turno:"mattina", count:bancoMattina, inizio:settings.bancoInizio, fine:f1.puntoMedio, ruolo:"banco"});
   slots.push({key:"sala_mattina", label:"Sala", turno:"mattina", count:salaMattina, inizio:settings.camerierArrivo, fine:f1.puntoMedio, ruolo:"sala"});
-  slots.push({key:"banco_pomeriggio", label:"Banco", turno:"pomeriggio", count:settings.bancoNormale, inizio:f1.puntoMedio, fine:f1.fine, ruolo:"banco"});
-  slots.push({key:"sala_pomeriggio", label:"Sala", turno:"pomeriggio", count:settings.salaNormale, inizio:f1.puntoMedio, fine:f1.fine, ruolo:"sala"});
+  // pomeriggio e sera seguono la stessa configurazione del giorno della mattina: se una
+  // deroga dice "a Ferragosto in sala siamo in quattro", vale per tutta la giornata
+  slots.push({key:"banco_pomeriggio", label:"Banco", turno:"pomeriggio", count:cfg.bancoNormale, inizio:f1.puntoMedio, fine:f1.fine, ruolo:"banco"});
+  slots.push({key:"sala_pomeriggio", label:"Sala", turno:"pomeriggio", count:cfg.salaNormale, inizio:f1.puntoMedio, fine:f1.fine, ruolo:"sala"});
   if(og.fascia2){
     var f2 = og.fascia2;
     if(settings.cucinaSegueFasce && settings.orariCucina[day] && settings.orariCucina[day].fascia2){
       slots.push({key:"cuoco_sera", label:"Cuoco · cena", turno:"sera", count:1, inizio:settings.orariCucina[day].fascia2.inizio, fine:null, isCuoco:true});
     }
-    slots.push({key:"banco_sera", label:"Banco", turno:"sera", count:settings.bancoNormale, inizio:f2.inizio, fine:f2.fine, ruolo:"banco"});
-    slots.push({key:"sala_sera", label:"Sala", turno:"sera", count:settings.salaNormale, inizio:f2.inizio, fine:f2.fine, ruolo:"sala"});
+    slots.push({key:"banco_sera", label:"Banco", turno:"sera", count:cfg.bancoNormale, inizio:f2.inizio, fine:f2.fine, ruolo:"banco"});
+    slots.push({key:"sala_sera", label:"Sala", turno:"sera", count:cfg.salaNormale, inizio:f2.inizio, fine:f2.fine, ruolo:"sala"});
   }
   return slots;
 }
@@ -1485,8 +1712,10 @@ function heroHtml(){
     ruoloPill = '<span class="pill no-print" style="background:var(--surface-2);color:var(--ink-muted);">'+
       (etichette[sessione.utente.ruolo]||sessione.utente.ruolo)+'</span>';
   }
+  var logo = (state.settings.azienda && state.settings.azienda.logo)
+    ? '<img class="hero-logo" src="'+escapeHtml(state.settings.azienda.logo)+'" alt="'+escapeHtml(titolo)+'">' : "";
   return '<div class="hero">'+
-    '<div><h1 class="hero-title"><small>'+soprattitolo+'</small>'+escapeHtml(titolo)+'</h1>'+
+    '<div>'+logo+'<h1 class="hero-title"><small>'+soprattitolo+'</small>'+escapeHtml(titolo)+'</h1>'+
     '<div class="hero-sub">Copertura settimanale automatica per cucina, banco e sala — a partire dai contratti e dalla disponibilità di ogni persona.</div></div>'+
     '<div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">'+
       selettore+ruoloPill+
@@ -1504,8 +1733,33 @@ function tabsHtml(){
 function escapeHtml(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
 
 /* ---------- IMPOSTAZIONI ---------- */
+/* Tabella oraria di una stagione: gli stessi campi degli orari standard, ma scritti
+   qui dentro, così si vede a colpo d'occhio cosa cambia davvero d'estate o d'inverno.
+   "prefisso" distingue i campi di una stagione da quelli di un'altra. */
+function renderTabellaOrariStagione(orari, i){
+  var testa = '<div style="display:flex;gap:10px;align-items:center;padding:6px 0;font-size:.72rem;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;flex-wrap:wrap;">'+
+    '<div style="min-width:86px;">Giorno</div><div style="min-width:112px;">Apertura</div>'+
+    '<div style="min-width:112px;">Cambio turno</div><div style="min-width:112px;">Chiusura</div>'+
+    '<div>Seconda apertura</div></div>';
+  var righe = DAYS.map(function(day){
+    var og = orari[day] || {fascia1:{inizio:"08:00",puntoMedio:"14:30",fine:"21:00"}, fascia2:null};
+    var f1 = og.fascia1, f2 = og.fascia2;
+    var campo = function(fascia, nome, valore){
+      return '<input type="time" style="width:106px;border:1px solid var(--border);background:var(--bg);color:var(--ink);border-radius:8px;padding:7px 8px;font-size:.86rem;" '+
+        'data-stagione-orario="'+i+'|'+day+'|'+fascia+'|'+nome+'" value="'+escapeHtml(valore)+'">';
+    };
+    return '<div style="display:flex;gap:10px;align-items:center;padding:7px 0;border-top:1px solid var(--border);flex-wrap:wrap;">'+
+      '<div style="min-width:86px;font-weight:700;font-size:.84rem;">'+DAY_LABELS[day]+'</div>'+
+      campo("fascia1","inizio",f1.inizio)+campo("fascia1","puntoMedio",f1.puntoMedio)+campo("fascia1","fine",f1.fine)+
+      '<label class="check" style="margin-left:4px;"><input type="checkbox" data-stagione-fascia2="'+i+'|'+day+'" '+(f2?"checked":"")+'> sì</label>'+
+      (f2 ? campo("fascia2","inizio",f2.inizio)+campo("fascia2","fine",f2.fine) : '')+
+    '</div>';
+  }).join("");
+  return '<div style="margin-top:12px;">'+testa+righe+'</div>';
+}
 function renderStagioni(s){
   var righe = (s.stagioni||[]).map(function(st, i){
+    var haOrari = !!st.orariGiorni;
     return '<div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;">'+
       '<div class="grid cols-4">'+
         '<label class="field">Nome<input type="text" data-stagione="'+i+'|nome" value="'+escapeHtml(st.nome||"")+'" placeholder="Estate"></label>'+
@@ -1513,13 +1767,22 @@ function renderStagioni(s){
         '<label class="field">Al (giorno/mese)<input type="text" data-stagione="'+i+'|al" value="'+escapeHtml(st.al||"")+'" placeholder="09-15" class="mono"></label>'+
         '<div class="field" style="justify-content:flex-end;"><label class="check"><input type="checkbox" data-stagione-attiva="'+i+'" '+(st.attiva!==false?"checked":"")+'> Attiva</label></div>'+
       '</div>'+
-      '<div class="btn-row" style="margin-top:10px;">'+
-        '<button class="btn btn-sm" data-stagione-copia="'+i+'">Copia qui gli orari attuali</button>'+
+      (haOrari
+        ? '<div class="card-desc" style="margin:14px 0 0;">Orari in vigore in questa stagione. Modificali qui: gli orari standard restano quelli che valgono nel resto dell’anno.</div>'+
+          renderTabellaOrariStagione(st.orariGiorni, i)
+        : '<div class="card-desc" style="margin:14px 0 0;">Questa stagione non ha ancora orari propri: nel periodo indicato valgono gli orari standard. Premi “Imposta gli orari di questa stagione” per partire da una copia di quelli attuali e correggerli qui sotto.</div>')+
+      '<div class="btn-row" style="margin-top:12px;">'+
+        (haOrari
+          ? '<button class="btn btn-sm" data-stagione-ricopia="'+i+'">Riparti dagli orari standard</button>'+
+            '<button class="btn btn-sm" data-stagione-azzera="'+i+'">Torna a usare gli orari standard</button>'
+          : '<button class="btn btn-sm btn-primary" data-stagione-copia="'+i+'">Imposta gli orari di questa stagione</button>')+
         '<button class="btn btn-sm btn-danger" data-stagione-elimina="'+i+'">Elimina stagione</button>'+
-        (st.orariGiorni ? '<span class="pill pill-success">orari propri impostati</span>' : '<span class="pill" style="background:var(--surface-2);color:var(--ink-muted);">nessun orario proprio: usa quelli standard</span>')+
       '</div>'+
     '</div>';
   }).join("");
+  if(!(s.stagioni||[]).length){
+    righe = '<div class="empty-note" style="margin-bottom:10px;">Nessuna stagione impostata: valgono tutto l’anno gli orari standard.</div>';
+  }
   return righe + '<div class="btn-row"><button class="btn btn-sm" id="btn-stagione-nuova">+ Aggiungi stagione</button></div>';
 }
 function renderDeroghe(s){
@@ -1529,7 +1792,10 @@ function renderDeroghe(s){
     var d = s.deroghe[data];
     var passata = data < oggi;
     var giorno = DAYS[(new Date(data+"T00:00:00").getDay()+6)%7];
-    var base = configurazioneDelGiorno(s, giorno, null);
+    // con la data vera si parte dagli orari che quel giorno avrebbe davvero (stagione
+    // compresa): partire da quelli standard riporterebbe di nascosto gli orari invernali
+    // su una deroga di Ferragosto
+    var base = configurazioneDelGiorno(s, giorno, data);
     var o = d.orari || base.orari;
     return '<div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;'+(passata?"opacity:.6;":"")+'">'+
       '<div class="grid cols-3">'+
@@ -1553,9 +1819,151 @@ function renderDeroghe(s){
       '</div>'+
     '</div>';
   }).join("");
-  if(!chiavi.length) righe = '<div class="empty-note" style="margin-bottom:10px;">Nessun giorno speciale impostato. Aggiungine uno per le festività, le sagre, i ponti o le chiusure.</div>';
+  if(!chiavi.length) righe = '<div class="empty-note" style="margin-bottom:10px;">Nessun giorno speciale impostato. Aggiungine uno dai suggerimenti qui sotto, oppure a mano per una sagra, un ponte o una chiusura.</div>';
   return righe+
-    '<div class="btn-row"><input type="date" id="deroga-nuova-data" value="'+isoDate(new Date())+'"><button class="btn btn-sm" id="btn-deroga-nuova">+ Aggiungi giorno speciale</button></div>';
+    '<div class="btn-row"><input type="date" id="deroga-nuova-data" value="'+isoDate(new Date())+'"><button class="btn btn-sm" id="btn-deroga-nuova">+ Aggiungi giorno speciale</button></div>'+
+    renderSuggerimentiGiorni(s);
+}
+
+var TIPO_SUGG_PILL = {
+  nazionale: '<span class="pill pill-amber">festività</span>',
+  commerciale: '<span class="pill pill-teal">ricorrenza</span>',
+  patrono: '<span class="pill pill-wine">patrono</span>',
+  locale: '<span class="pill pill-success">tuo evento</span>'
+};
+function renderSuggerimentiGiorni(s){
+  var sugg = suggerimentiUtili(s);
+  var az = s.azienda || {};
+  var LIMITE_SUGG = 60;
+  var troncati = Math.max(0, sugg.length - LIMITE_SUGG);
+  var righe = sugg.slice(0, LIMITE_SUGG).map(function(x){
+    var anno = x.data.slice(0,4);
+    return '<div class="sugg-row">'+
+      '<div class="sugg-data">'+fmtDateLabel(x.data)+' '+anno+'</div>'+
+      TIPO_SUGG_PILL[x.tipo]+
+      '<div style="flex:1;min-width:200px;font-size:.86rem;"><strong>'+escapeHtml(x.nome)+'</strong>'+
+        (x.nota?'<div class="hint" style="font-size:.76rem;">'+escapeHtml(x.nota)+'</div>':'')+'</div>'+
+      '<button class="btn btn-sm" data-sugg-aggiungi="'+x.data+'" data-sugg-nome="'+escapeHtml(x.nome)+'">Aggiungi</button>'+
+    '</div>';
+  }).join("");
+  var nota = az.comune
+    ? (PATRONI[String(az.comune).trim().toLowerCase()]
+        ? 'Il patrono di '+escapeHtml(az.comune)+' è già nell’elenco.'
+        : 'Di '+escapeHtml(az.comune)+' non conosco la festa patronale né le sagre: aggiungile una volta sola qui sotto e te le riproporrò ogni anno.')
+    : 'Indica comune e provincia in “La tua azienda” (in fondo alla pagina) per avere anche i suggerimenti legati al tuo territorio.';
+  var eventi = (az.eventiLocali||[]).map(function(e, i){
+    return '<div class="sugg-row">'+
+      '<div class="sugg-data mono">'+escapeHtml(e.mmdd)+'</div>'+
+      '<div style="flex:1;min-width:200px;font-size:.86rem;">'+escapeHtml(e.nome)+'</div>'+
+      '<button class="btn btn-sm btn-danger" data-evento-locale-elimina="'+i+'">Rimuovi</button>'+
+    '</div>';
+  }).join("");
+  return '<div style="margin-top:22px;border-top:1px solid var(--border);padding-top:16px;">'+
+    '<h3 style="font-size:.96rem;margin-bottom:6px;">Giorni suggeriti nei prossimi 12 mesi</h3>'+
+    '<div class="card-desc">Festività nazionali, ricorrenze che in un locale si sentono sempre (San Valentino, martedì grasso, festa della mamma, vigilie) e, se hai indicato il comune, la festa patronale. Le date sono calcolate qui, senza collegamenti esterni: Pasqua, Pasquetta e Carnevale seguono l’anno giusto. Aggiungere un suggerimento crea un giorno speciale che puoi poi rifinire come gli altri. '+nota+'</div>'+
+    (righe || '<div class="empty-note">Hai già impostato tutti i giorni suggeriti per i prossimi 12 mesi.</div>')+
+    (troncati ? '<div class="hint" style="font-size:.78rem;padding-top:8px;">Altri '+troncati+' suggerimenti più avanti nell’anno non sono mostrati qui: compariranno mano a mano che ci si avvicina.</div>' : '')+
+    '<h3 style="font-size:.96rem;margin:22px 0 6px;">Le ricorrenze del tuo paese</h3>'+
+    '<div class="card-desc">Sagre, fiere, patrono, mercato settimanale straordinario: le sai solo tu. Inseriscile una volta — torneranno tra i suggerimenti ogni anno alla stessa data.</div>'+
+    eventi+
+    '<div class="btn-row" style="margin-top:10px;">'+
+      '<input type="text" id="evento-locale-mmdd" placeholder="MM-GG (es. 06-29)" style="max-width:150px;" class="mono">'+
+      '<input type="text" id="evento-locale-nome" placeholder="Nome dell’evento" style="max-width:280px;">'+
+      '<button class="btn btn-sm" id="btn-evento-locale-nuovo">+ Aggiungi ricorrenza</button>'+
+    '</div>'+
+  '</div>';
+}
+
+/* ---------- anagrafica dell'attività ---------- */
+var REGIONI = {
+  "Abruzzo":["AQ","CH","PE","TE"],
+  "Basilicata":["MT","PZ"],
+  "Calabria":["CS","CZ","KR","RC","VV"],
+  "Campania":["AV","BN","CE","NA","SA"],
+  "Emilia-Romagna":["BO","FC","FE","MO","PC","PR","RA","RE","RN"],
+  "Friuli-Venezia Giulia":["GO","PN","TS","UD"],
+  "Lazio":["FR","LT","RI","RM","VT"],
+  "Liguria":["GE","IM","SP","SV"],
+  "Lombardia":["BG","BS","CO","CR","LC","LO","MB","MI","MN","PV","SO","VA"],
+  "Marche":["AN","AP","FM","MC","PU"],
+  "Molise":["CB","IS"],
+  "Piemonte":["AL","AT","BI","CN","NO","TO","VB","VC"],
+  "Puglia":["BA","BR","BT","FG","LE","TA"],
+  "Sardegna":["CA","NU","OR","SS","SU"],
+  "Sicilia":["AG","CL","CT","EN","ME","PA","RG","SR","TP"],
+  "Toscana":["AR","FI","GR","LI","LU","MS","PI","PO","PT","SI"],
+  "Trentino-Alto Adige":["BZ","TN"],
+  "Umbria":["PG","TR"],
+  "Valle d’Aosta":["AO"],
+  "Veneto":["BL","PD","RO","TV","VE","VI","VR"]
+};
+var PROVINCE_NOMI = {
+  AG:"Agrigento",AL:"Alessandria",AN:"Ancona",AO:"Aosta",AP:"Ascoli Piceno",AQ:"L’Aquila",AR:"Arezzo",AT:"Asti",AV:"Avellino",
+  BA:"Bari",BG:"Bergamo",BI:"Biella",BL:"Belluno",BN:"Benevento",BO:"Bologna",BR:"Brindisi",BS:"Brescia",BT:"Barletta-Andria-Trani",BZ:"Bolzano",
+  CA:"Cagliari",CB:"Campobasso",CE:"Caserta",CH:"Chieti",CL:"Caltanissetta",CN:"Cuneo",CO:"Como",CR:"Cremona",CS:"Cosenza",CT:"Catania",CZ:"Catanzaro",
+  EN:"Enna",FC:"Forlì-Cesena",FE:"Ferrara",FG:"Foggia",FI:"Firenze",FM:"Fermo",FR:"Frosinone",
+  GE:"Genova",GO:"Gorizia",GR:"Grosseto",IM:"Imperia",IS:"Isernia",KR:"Crotone",
+  LC:"Lecco",LE:"Lecce",LI:"Livorno",LO:"Lodi",LT:"Latina",LU:"Lucca",
+  MB:"Monza e Brianza",MC:"Macerata",ME:"Messina",MI:"Milano",MN:"Mantova",MO:"Modena",MS:"Massa-Carrara",MT:"Matera",
+  NA:"Napoli",NO:"Novara",NU:"Nuoro",OR:"Oristano",
+  PA:"Palermo",PC:"Piacenza",PD:"Padova",PE:"Pescara",PG:"Perugia",PI:"Pisa",PN:"Pordenone",PO:"Prato",PR:"Parma",PT:"Pistoia",PU:"Pesaro e Urbino",PV:"Pavia",PZ:"Potenza",
+  RA:"Ravenna",RC:"Reggio Calabria",RE:"Reggio Emilia",RG:"Ragusa",RI:"Rieti",RM:"Roma",RN:"Rimini",RO:"Rovigo",
+  SA:"Salerno",SI:"Siena",SO:"Sondrio",SP:"La Spezia",SR:"Siracusa",SS:"Sassari",SU:"Sud Sardegna",SV:"Savona",
+  TA:"Taranto",TE:"Teramo",TN:"Trento",TO:"Torino",TP:"Trapani",TR:"Terni",TS:"Trieste",TV:"Treviso",
+  UD:"Udine",VA:"Varese",VB:"Verbano-Cusio-Ossola",VC:"Vercelli",VE:"Venezia",VI:"Vicenza",VR:"Verona",VT:"Viterbo",VV:"Vibo Valentia"
+};
+function renderAzienda(s){
+  var a = s.azienda || defaultAzienda();
+  function testo(campo, label, placeholder, extra){
+    return '<label class="field">'+label+'<input type="text" data-azienda="'+campo+'" value="'+escapeHtml(a[campo]||"")+'" placeholder="'+escapeHtml(placeholder||"")+'"'+(extra||"")+'></label>';
+  }
+  var regioni = '<option value="">— scegli —</option>'+Object.keys(REGIONI).map(function(r){
+    return '<option value="'+escapeHtml(r)+'"'+(a.regione===r?" selected":"")+'>'+escapeHtml(r)+'</option>';
+  }).join("");
+  var elencoProv = REGIONI[a.regione] || Object.keys(PROVINCE_NOMI).sort();
+  var province = '<option value="">— scegli —</option>'+elencoProv.map(function(p){
+    return '<option value="'+p+'"'+(a.provincia===p?" selected":"")+'>'+escapeHtml(PROVINCE_NOMI[p]||p)+' ('+p+')</option>';
+  }).join("");
+
+  return '<h3 style="font-size:.96rem;margin-bottom:6px;">Dove sei</h3>'+
+    '<div class="card-desc">Serve al programma per proporti le giornate di massima affluenza giuste nella sezione “Giorni speciali”: festività nazionali per tutti, festa patronale se il comune è fra quelli che conosco, e le sagre che aggiungi tu.</div>'+
+    '<div class="grid cols-3">'+
+      '<label class="field">Regione<select data-azienda="regione">'+regioni+'</select></label>'+
+      '<label class="field">Provincia<select data-azienda="provincia">'+province+'</select></label>'+
+      testo("comune","Comune","Peschiera del Garda")+
+    '</div>'+
+    '<div class="grid cols-2" style="margin-top:14px;">'+
+      testo("indirizzo","Indirizzo","Via Roma 1")+
+      testo("cap","CAP","37019")+
+    '</div>'+
+
+    '<h3 style="font-size:.96rem;margin:26px 0 6px;">Dati dell’attività</h3>'+
+    '<div class="card-desc">Compaiono sui documenti che esporti e identificano l’attività. Restano salvati insieme al resto della configurazione.</div>'+
+    '<div class="grid cols-2">'+
+      '<label class="field">Nome dell’attività (quello che compare in alto)<input type="text" data-setting="barName" value="'+escapeHtml(s.barName||"")+'" placeholder="9 Days Bar"></label>'+
+      testo("ragioneSociale","Ragione sociale","9 Days S.r.l.")+
+    '</div>'+
+    '<div class="grid cols-3" style="margin-top:14px;">'+
+      testo("piva","Partita IVA","01234567890")+
+      testo("codiceFiscale","Codice fiscale","")+
+      testo("codiceSdi","Codice destinatario (SDI)","")+
+    '</div>'+
+    '<div class="grid cols-3" style="margin-top:14px;">'+
+      testo("pec","PEC","azienda@pec.it")+
+      testo("email","Email","info@illocale.it")+
+      testo("telefono","Telefono","")+
+    '</div>'+
+
+    '<h3 style="font-size:.96rem;margin:26px 0 6px;">Logo</h3>'+
+    '<div class="card-desc">Compare in alto a sinistra, sopra il nome. Viene ridimensionato e salvato dentro i dati del locale, quindi lo ritrovi su qualsiasi computer: non serve ricaricarlo ogni volta. Formati accettati: PNG, JPG, SVG o WEBP, fino a 4 MB.</div>'+
+    (a.logo
+      ? '<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;"><img class="logo-preview" src="'+escapeHtml(a.logo)+'" alt="Logo dell’attività">'+
+        '<button class="btn btn-sm btn-danger" id="btn-logo-rimuovi">Rimuovi logo</button></div>'
+      : '<div class="empty-note" style="margin-bottom:10px;">Nessun logo caricato.</div>')+
+    '<div class="btn-row" style="margin-top:10px;">'+
+      '<input type="file" id="input-logo" accept="image/png,image/jpeg,image/svg+xml,image/webp">'+
+    '</div>'+
+    '<div id="logo-esito" class="hint" style="font-size:.78rem;margin-top:8px;"></div>';
 }
 
 /* Controlli di coerenza sulla configurazione: gli errori qui producono, una settimana
@@ -1637,7 +2045,64 @@ function validaImpostazioni(s){
   if((Number(s.salaNormale)||0)===0 && (Number(s.bancoNormale)||0)===0){
     out.push({livello:"avviso", testo:"Sala e banco sono entrambi a zero persone: la generazione produrrà solo turni di cucina."});
   }
+
+  // le stagioni hanno orari propri: vanno controllate come quelli standard, altrimenti
+  // l'errore si scopre solo il giorno in cui la stagione entra in vigore
+  (s.stagioni||[]).forEach(function(st){
+    if(!st) return;
+    var nome = st.nome || "senza nome";
+    var valida = function(v){ return /^(0\d|1[0-2])-([0-2]\d|3[01])$/.test(String(v||"")) && giornoEsiste(2004, Number(String(v).slice(0,2)), Number(String(v).slice(3,5))); };
+    if(!valida(st.dal) || !valida(st.al)){
+      out.push({livello:"errore", testo:"Stagione “"+nome+"”: il periodo va scritto come giorno e mese a due cifre (per esempio 06-01 → 09-15). Con “"+(st.dal||"")+" → "+(st.al||"")+"” la stagione non entrerà mai in vigore."});
+      return;
+    }
+    if(!st.orariGiorni) return;
+    DAYS.forEach(function(day){
+      var og = st.orariGiorni[day];
+      if(!og || !og.fascia1) return;
+      var f1 = og.fascia1, dove = "Stagione “"+nome+"”, "+DAY_LABELS[day];
+      if(!f1.inizio || !f1.fine || !f1.puntoMedio){
+        out.push({livello:"errore", testo:dove+": manca un orario. Compila apertura, cambio turno e chiusura."});
+        return;
+      }
+      var dur = durataFascia(f1.inizio, f1.fine);
+      if(dur < 0.5 || dur > 16){
+        out.push({livello:"errore", testo:dove+": l’apertura dura "+fmtOre(dur)+" — probabilmente gli orari sono invertiti."});
+      }
+      var pm = timeToMin(f1.puntoMedio) - timeToMin(f1.inizio); if(pm<0) pm += 1440;
+      if(pm <= 0 || pm >= dur*60){
+        out.push({livello:"errore", testo:dove+": il cambio turno delle "+f1.puntoMedio+" cade fuori dall’orario di apertura ("+f1.inizio+"–"+f1.fine+")."});
+      }
+      if(og.fascia2){
+        var dur2 = durataFascia(og.fascia2.inizio, og.fascia2.fine);
+        if(dur2 < 0.5 || dur2 > 16){
+          out.push({livello:"errore", testo:dove+": la seconda apertura dura "+fmtOre(dur2)+" — controlla gli orari."});
+        }
+      }
+    });
+  });
+
+  // una sera aperta senza cucina configurata non produce nessun turno cuoco e nemmeno
+  // un buco da risolvere: il turno esce con sala e banco e senza nessuno ai fornelli
+  if(s.cucinaSegueFasce){
+    DAYS.forEach(function(day){
+      var seraStandard = !!(s.orariGiorni[day] && s.orariGiorni[day].fascia2);
+      var stagioniSera = (s.stagioni||[]).filter(function(st){
+        return st && st.attiva!==false && st.orariGiorni && st.orariGiorni[day] && st.orariGiorni[day].fascia2;
+      });
+      if(!seraStandard && !stagioniSera.length) return;
+      if(s.orariCucina[day] && s.orariCucina[day].fascia2) return;
+      var quando = seraStandard ? "" : " (nella stagione “"+(stagioniSera[0].nome||"senza nome")+"”)";
+      out.push({livello:"avviso", testo:DAY_LABELS[day]+quando+": la sera il locale è aperto ma la cucina serale non è configurata. Sala e banco verranno coperti, il cuoco no — e il turno mancante non comparirà tra i buchi da risolvere. Attivalo in “Cucina”."});
+    });
+  }
   return out;
+}
+/* Il giorno esiste davvero in quel mese? Il costruttore Date non se ne lamenta: il
+   29 febbraio di un anno non bisestile diventa in silenzio il 1º marzo. */
+function giornoEsiste(anno, mese, giorno){
+  var d = new Date(anno, mese-1, giorno);
+  return d.getFullYear()===anno && d.getMonth()===mese-1 && d.getDate()===giorno;
 }
 function renderValidazione(s){
   var esiti = validaImpostazioni(s);
@@ -1659,16 +2124,48 @@ function renderValidazione(s){
 function renderPrioritaFasceGrid(s){
   var rows = DAYS.map(function(day){
     var hasSera = !!(s.orariGiorni[day] && s.orariGiorni[day].fascia2);
-    var bande = hasSera ? BANDE : ["mattina","pomeriggio"];
-    var cells = bande.map(function(banda){
-      var val = (s.prioritaFasce[day] && s.prioritaFasce[day][banda]) || 3;
-      var opts = [1,2,3].map(function(t){ return '<option value="'+t+'"'+(val===t?" selected":"")+'>'+t+'</option>'; }).join("");
-      return '<label class="field" style="min-width:96px;">'+BANDA_LABELS[banda]+'<select data-priorita-fascia="'+day+'|'+banda+'">'+opts+'</select></label>';
+    var cells = BANDE.map(function(banda){
+      var val = Number(s.prioritaFasce[day] && s.prioritaFasce[day][banda]) || 3;
+      var opts = TIER_VALUES.map(function(t){
+        return '<option value="'+t+'"'+(val===t?" selected":"")+'>'+TIER_LABELS[t]+'</option>';
+      }).join("");
+      // la sera si configura sempre: così è già pronta il giorno in cui si apre anche
+      // la sera, e non si scopre a turni generati che quella fascia non era impostata
+      var inattiva = (banda==="sera" && !hasSera);
+      return '<label class="field" style="min-width:130px;'+(inattiva?"opacity:.6;":"")+'">'+BANDA_LABELS[banda]+
+        '<select data-priorita-fascia="'+day+'|'+banda+'">'+opts+'</select>'+
+        (inattiva?'<span class="hint" style="font-size:.68rem;">nessuna apertura serale</span>':'')+
+      '</label>';
     }).join("");
-    return '<div style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--border);">'+
-      '<div style="min-width:96px;font-weight:700;">'+DAY_LABELS[day]+'</div>'+cells+'</div>';
+    return '<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--border);">'+
+      '<div style="min-width:96px;font-weight:700;padding-top:18px;">'+DAY_LABELS[day]+'</div>'+cells+'</div>';
   }).join("");
   return '<div style="margin-top:6px;">'+rows+'</div>';
+}
+
+function renderConfigurazioniPriorita(s){
+  var lista = s.configurazioniPriorita || [];
+  // ogni pulsante ridisegna la pagina: senza ricordare la scelta, la tendina tornerebbe
+  // sempre sulla prima configurazione e il clic successivo colpirebbe quella sbagliata
+  if(cfgSelezionataId && !lista.some(function(c){ return c.id===cfgSelezionataId; })) cfgSelezionataId = null;
+  if(!cfgSelezionataId && lista.length) cfgSelezionataId = lista[0].id;
+  var opzioni = lista.map(function(c){
+    return '<option value="'+escapeHtml(c.id)+'"'+(c.id===cfgSelezionataId?" selected":"")+'>'+escapeHtml(c.nome)+'</option>';
+  }).join("");
+  var blocco = lista.length
+    ? '<div class="btn-row" style="margin-bottom:10px;">'+
+        '<select id="cfg-priorita-select" style="max-width:320px;">'+opzioni+'</select>'+
+        '<button class="btn btn-sm" id="btn-cfg-applica">Applica</button>'+
+        '<button class="btn btn-sm" id="btn-cfg-aggiorna">Aggiorna con quella attuale</button>'+
+        '<button class="btn btn-sm" id="btn-cfg-rinomina">Rinomina</button>'+
+        '<button class="btn btn-sm btn-danger" id="btn-cfg-elimina">Elimina</button>'+
+      '</div>'
+    : '<div class="empty-note" style="margin-bottom:10px;">Non hai ancora salvato nessuna configurazione. Imposta qui sotto ordine dei reparti e priorità come ti servono, poi salvale con un nome: potrai richiamarle in un clic quando cambia la stagione o arriva una settimana particolare.</div>';
+  return blocco+
+    '<div class="btn-row">'+
+      '<input type="text" id="cfg-priorita-nome" placeholder="Nome della configurazione (es. Estate)" style="width:320px;max-width:100%;">'+
+      '<button class="btn btn-sm btn-primary" id="btn-cfg-salva">Salva la configurazione attuale</button>'+
+    '</div>';
 }
 function renderOrariGiorniEditor(s){
   return DAYS.map(function(day){
@@ -1678,14 +2175,15 @@ function renderOrariGiorniEditor(s){
     var f2 = og.fascia2 || {inizio:"19:00", fine:"23:00"};
     return '<div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;">'+
       '<div style="font-weight:700;margin-bottom:8px;">'+DAY_LABELS[day]+'</div>'+
-      '<div class="grid cols-2">'+
-        '<label class="field">Cambio turno (punto medio)<input type="time" data-orario-giorno="'+day+'|fascia1|puntoMedio" value="'+f1.puntoMedio+'"></label>'+
-        '<label class="field">Chiusura<input type="time" data-orario-giorno="'+day+'|fascia1|fine" value="'+f1.fine+'"></label>'+
+      '<div class="grid cols-3">'+
+        '<label class="field">Apertura<input type="time" data-orario-giorno="'+day+'|fascia1|inizio" value="'+escapeHtml(f1.inizio)+'"></label>'+
+        '<label class="field">Cambio turno (punto medio)<input type="time" data-orario-giorno="'+day+'|fascia1|puntoMedio" value="'+escapeHtml(f1.puntoMedio)+'"></label>'+
+        '<label class="field">Chiusura<input type="time" data-orario-giorno="'+day+'|fascia1|fine" value="'+escapeHtml(f1.fine)+'"></label>'+
       '</div>'+
       '<label class="check" style="margin-top:10px;"><input type="checkbox" data-fascia2-toggle="'+day+'" '+(hasF2?"checked":"")+'> Seconda apertura lo stesso giorno (turno spezzato, es. pranzo + cena)</label>'+
       (hasF2 ? '<div class="grid cols-2" style="margin-top:8px;">'+
-        '<label class="field">Apertura serale<input type="time" data-orario-giorno="'+day+'|fascia2|inizio" value="'+f2.inizio+'"></label>'+
-        '<label class="field">Chiusura serale<input type="time" data-orario-giorno="'+day+'|fascia2|fine" value="'+f2.fine+'"></label>'+
+        '<label class="field">Apertura serale<input type="time" data-orario-giorno="'+day+'|fascia2|inizio" value="'+escapeHtml(f2.inizio)+'"></label>'+
+        '<label class="field">Chiusura serale<input type="time" data-orario-giorno="'+day+'|fascia2|fine" value="'+escapeHtml(f2.fine)+'"></label>'+
       '</div>' : '')+
     '</div>';
   }).join("");
@@ -1694,7 +2192,13 @@ function renderCucinaOrariEditor(s){
   return DAYS.map(function(day){
     var oc = s.orariCucina[day] || {fascia1:{inizio:s.cuocoInizio,fineCapo:s.fineTurnoCuocoCapo,fineRiserva:s.fineTurnoCuocoRiserva},fascia2:null};
     var og = s.orariGiorni[day];
-    var hasVenueF2 = !!og.fascia2;
+    // la sera può arrivare anche solo da una stagione (locale chiuso la sera d'inverno,
+    // aperto d'estate): senza guardare anche lì, l'utente non avrebbe modo di configurare
+    // la cucina serale e le cene estive uscirebbero senza cuoco
+    var seraDaStagione = (s.stagioni||[]).some(function(st){
+      return st && st.attiva!==false && st.orariGiorni && st.orariGiorni[day] && st.orariGiorni[day].fascia2;
+    });
+    var hasVenueF2 = !!og.fascia2 || seraDaStagione;
     var f1 = oc.fascia1;
     var hasKitchenF2 = !!oc.fascia2;
     var f2 = oc.fascia2 || {inizio:(og.fascia2?og.fascia2.inizio:"19:00"), fineCapo:"22:00", fineRiserva:"21:30"};
@@ -1712,7 +2216,7 @@ function renderCucinaOrariEditor(s){
           '<label class="field">Fine turno capo<input type="time" data-cucina-orario="'+day+'|fascia2|fineCapo" value="'+f2.fineCapo+'"></label>'+
           '<label class="field">Fine turno riserva<input type="time" data-cucina-orario="'+day+'|fascia2|fineRiserva" value="'+f2.fineRiserva+'"></label>'+
         '</div>' : '')
-      ) : '<div class="card-desc" style="margin:8px 0 0;">Questo giorno non ha una seconda apertura del locale (vedi “Orari di apertura al pubblico”): nessun turno cucina serale possibile.</div>')+
+      ) : '<div class="card-desc" style="margin:8px 0 0;">Questo giorno non ha una seconda apertura del locale, né negli orari standard né in una stagione (vedi “Orari di apertura al pubblico” e “Stagioni”): nessun turno cucina serale possibile.</div>')+
     '</div>';
   }).join("");
 }
@@ -1730,9 +2234,6 @@ function renderImpostazioni(){
   }).join("");
 
   var ordine = normalizePriorityOrder(s.ordinePriorita);
-  var presetOptions = Object.keys(PRIORITY_PRESETS).map(function(k){
-    return '<option value="'+k+'">'+PRIORITY_PRESETS[k].label+'</option>';
-  }).join("");
   var ordineSelects = [0,1,2].map(function(i){
     var opts = DEPARTMENTS.map(function(d){ return '<option value="'+d+'"'+(ordine[i]===d?" selected":"")+'>'+DEPARTMENT_LABELS[d]+'</option>'; }).join("");
     return '<label class="field">Priorità '+(i+1)+'ª<select data-ordine-priorita="'+i+'">'+opts+'</select></label>';
@@ -1741,18 +2242,15 @@ function renderImpostazioni(){
   return ''+
   renderValidazione(s)+
   '<div class="card" style="border-color:var(--accent);"><h2>Priorità quando il personale non basta</h2>'+
-    '<div class="card-desc">Quando non c’è abbastanza personale per coprire tutti i turni, decidi tu quale reparto proteggere per primo tra cucina, banco e sala, e per ogni giorno e ogni fascia (mattina/pomeriggio/sera) quale livello di priorità dargli: 1 = protetto per primo, 2 = protetto subito dopo, 3 = il resto, coperto per ultimo. Tutto qui sotto resta sempre modificabile, anche dopo aver applicato una configurazione pronta.</div>'+
+    '<div class="card-desc">Quando non c’è abbastanza personale per coprire tutti i turni, decidi tu quale reparto proteggere per primo tra cucina, banco e sala, e per ogni giorno e ogni fascia (mattina, pomeriggio e sera) quanto quella fascia va difesa: <strong>alta</strong> = coperta per prima, <strong>media</strong> = subito dopo, <strong>bassa</strong> = il resto, coperto per ultimo.</div>'+
 
-    '<div class="card-desc" style="margin-bottom:6px;">Applica una configurazione pronta (sovrascrive tutto quanto qui sotto — resterà comunque tutto modificabile dopo):</div>'+
-    '<div class="btn-row" style="margin-bottom:16px;">'+
-      '<select id="pp-preset-select" style="max-width:320px;">'+presetOptions+'</select>'+
-      '<button class="btn btn-sm" id="btn-applica-preset">Applica</button>'+
-    '</div>'+
+    '<div class="card-desc" style="margin-bottom:6px;">Le tue configurazioni: puoi salvare più impostazioni complete di priorità (per esempio “Estate”, “Inverno”, “Settimana della sagra”) e richiamarle quando servono. Applicarne una sovrascrive ordine dei reparti e priorità di giorno/fascia; resta comunque tutto modificabile dopo.</div>'+
+    renderConfigurazioniPriorita(s)+
 
-    '<div class="card-desc" style="margin-bottom:6px;">Ordine dei reparti da proteggere per primi:</div>'+
+    '<div class="card-desc" style="margin-top:20px;margin-bottom:6px;">Ordine dei reparti da proteggere per primi:</div>'+
     '<div class="grid cols-3">'+ordineSelects+'</div>'+
 
-    '<div class="card-desc" style="margin-top:16px;margin-bottom:6px;">Livello di priorità (1/2/3) per ogni giorno e fascia oraria — la colonna “Sera” compare solo per i giorni che hanno una seconda apertura (vedi “Orari di apertura al pubblico” più sotto):</div>'+
+    '<div class="card-desc" style="margin-top:16px;margin-bottom:6px;">Livello di priorità per ogni giorno e fascia oraria. La fascia “Sera” si imposta sempre, anche sui giorni che oggi non hanno una seconda apertura: se e quando l’aggiungerai (vedi “Orari di apertura al pubblico”), la priorità sarà già quella giusta.</div>'+
     renderPrioritaFasceGrid(s)+
   '</div>'+
 
@@ -1770,10 +2268,6 @@ function renderImpostazioni(){
 
   '<div class="card"><h2>Stagioni</h2><div class="card-desc">Un intervallo di date che ogni anno sostituisce gli orari standard: sul lago l’estate e l’inverno non sono lo stesso locale. Si scrive giorno e mese (per esempio <span class="mono">06-01</span> → <span class="mono">09-15</span>); un intervallo può anche scavalcare il capodanno. Vale per tutti gli anni, non va rifatto ogni stagione.</div>'+
     renderStagioni(s)+
-  '</div>'+
-
-  '<div class="card"><h2>Giorni speciali</h2><div class="card-desc">Deroghe su una data precisa: Ferragosto, il 31 dicembre, la sagra del paese, un ponte, una chiusura straordinaria. Batte sia gli orari standard sia la stagione. Se segni “locale chiuso”, per quel giorno non viene generato nessun turno.</div>'+
-    renderDeroghe(s)+
   '</div>'+
 
   '<div class="card"><h2>Regole di tutela del personale</h2><div class="card-desc">Il programma le calcola e le segnala, ma <strong>non blocca mai la copertura di un turno</strong>: se l’unica persona disponibile infrange una di queste regole, il turno viene comunque assegnato e marcato come irregolare, così puoi decidere tu se accettarlo, spostare qualcuno o chiedere più disponibilità. I valori di default seguono la normativa italiana sull’orario di lavoro.</div>'+
@@ -1819,7 +2313,7 @@ function renderImpostazioni(){
       num("bancoNormale","Persone al banco — giorno normale")+
     '</div></div>'+
 
-  '<div class="card"><h2>Giorni di massima affluenza</h2><div class="card-desc">Rinforzo in sala al mattino, e sono anche i giorni di “priorità 1” per la copertura completa (vedi la card in cima). Sabato, domenica e lunedì sono impostati come picco di default.</div>'+
+  '<div class="card"><h2>Giorni di massima affluenza</h2><div class="card-desc">I giorni in cui serve più gente al mattino: qui decidi quante persone in sala e al banco, e quali giorni della settimana valgono come picco. La priorità di copertura è una cosa distinta e si imposta nella card in cima (“Priorità quando il personale non basta”): questi giorni non la cambiano da soli.</div>'+
     '<div class="grid cols-2">'+
       num("salaPicco","Persone in sala — mattina di picco")+
       num("bancoPicco","Persone al banco — mattina di picco")+
@@ -1827,8 +2321,16 @@ function renderImpostazioni(){
     '<div style="margin-top:12px;display:flex;gap:14px;flex-wrap:wrap;">'+giorniPiccoBoxes+'</div>'+
   '</div>'+
 
+  '<div class="card"><h2>Giorni speciali</h2><div class="card-desc">I giorni di massima affluenza qui sopra si ripetono ogni settimana. Questi invece sono singole date: Ferragosto, il 31 dicembre, la sagra del paese, un ponte, una chiusura straordinaria. Una data speciale batte sia gli orari standard sia la stagione. Se segni “locale chiuso”, per quel giorno non viene generato nessun turno.</div>'+
+    renderDeroghe(s)+
+  '</div>'+
+
   '<div class="card"><h2>Turni spezzati</h2><div class="card-desc">Di default non vengono usati: un dipendente può fare al massimo un turno (mattina o pomeriggio) al giorno. Si spezza solo se lo abiliti per la singola persona nella scheda “Personale”.</div>'+
     '<label class="check"><input type="checkbox" data-setting-bool="spezzatiDiDefault" '+(s.spezzatiDiDefault?"checked":"")+'> Consenti comunque i turni spezzati come opzione generale (resta comunque necessario spuntarlo per ogni dipendente)</label>'+
+  '</div>'+
+
+  '<div class="card"><h2>La tua azienda</h2><div class="card-desc">Chi sei, dove sei e con che logo ti presenti. Il luogo non serve solo all’anagrafica: è quello che permette al programma di proporti i giorni di massima affluenza del tuo territorio.</div>'+
+    renderAzienda(s)+
   '</div>'+
 
   '<div class="btn-row" style="margin-bottom:18px;"><button class="btn" id="btn-reset-settings">Ripristina impostazioni di default</button></div>'+
@@ -2397,6 +2899,76 @@ function exportAssenzeExcel(dal, al){
 }
 
 /* ---------- eventi ---------- */
+/* Il logo viaggia dentro lo stato del locale, che è un unico blob JSON salvato a ogni
+   modifica: un file da 3 MB verrebbe rispedito al server a ogni clic. Quindi si
+   ridimensiona prima di salvarlo. Gli SVG non si rasterizzano (perderebbero qualità):
+   si accettano solo se già leggeri. */
+var LOGO_LATO_MAX = 400;      // px sul lato lungo
+var LOGO_BYTE_MAX = 4*1024*1024;
+var LOGO_SVG_BYTE_MAX = 120*1024;
+function esitoLogo(testo, errore){
+  var box = document.getElementById("logo-esito");
+  if(!box) return;
+  box.textContent = testo;
+  box.style.color = errore ? "var(--danger)" : "var(--ink-muted)";
+}
+function caricaLogo(file){
+  if(file.size > LOGO_BYTE_MAX){
+    esitoLogo("Il file pesa "+Math.round(file.size/1048576*10)/10+" MB: il limite è 4 MB. Riduci l’immagine e riprova.", true);
+    return;
+  }
+  var lettore = new FileReader();
+  lettore.onerror = function(){ esitoLogo("Non è stato possibile leggere il file.", true); };
+  lettore.onload = function(){
+    var dataUri = String(lettore.result);
+    if(file.type === "image/svg+xml"){
+      if(dataUri.length > LOGO_SVG_BYTE_MAX*1.4){
+        esitoLogo("Questo SVG è troppo pesante per essere salvato insieme ai dati. Esportalo in PNG e ricaricalo.", true);
+        return;
+      }
+      state.settings.azienda.logo = dataUri;
+      saveState(); render();
+      return;
+    }
+    var img = new Image();
+    img.onerror = function(){ esitoLogo("Il file non sembra un’immagine valida.", true); };
+    img.onload = function(){
+      var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+      if(!w || !h){ esitoLogo("Il file non sembra un’immagine valida.", true); return; }
+      var scala = Math.min(1, LOGO_LATO_MAX/Math.max(w,h));
+      var cw = Math.max(1, Math.round(w*scala)), ch = Math.max(1, Math.round(h*scala));
+      var canvas = document.createElement("canvas");
+      canvas.width = cw; canvas.height = ch;
+      var ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, cw, ch);
+      var ridotto;
+      try{
+        ridotto = canvas.toDataURL("image/png");
+        // un PNG molto dettagliato può restare enorme: in quel caso si passa a JPEG, che
+        // però non ha trasparenza — senza fondo bianco un logo trasparente diventerebbe
+        // un rettangolo nero in cima a ogni schermata e a ogni stampa
+        if(ridotto.length > 260000){
+          var piano = document.createElement("canvas");
+          piano.width = cw; piano.height = ch;
+          var pctx = piano.getContext("2d");
+          pctx.fillStyle = "#ffffff";
+          pctx.fillRect(0, 0, cw, ch);
+          pctx.drawImage(img, 0, 0, cw, ch);
+          ridotto = piano.toDataURL("image/jpeg", 0.85);
+        }
+      }catch(e){
+        esitoLogo("Il browser non è riuscito a elaborare l’immagine.", true);
+        return;
+      }
+      state.settings.azienda.logo = ridotto;
+      saveState(); render();
+      esitoLogo("Logo aggiornato ("+cw+"×"+ch+" px).");
+    };
+    img.src = dataUri;
+  };
+  lettore.readAsDataURL(file);
+}
+
 function wireEvents(){
   document.querySelectorAll("[data-tab]").forEach(function(b){
     b.addEventListener("click", function(){ activeTab = b.getAttribute("data-tab"); editingEmpId=null; render(); });
@@ -2432,6 +3004,7 @@ function wireEvents(){
       var f = inp.getAttribute("data-setting");
       state.settings[f] = inp.type==="number" ? Number(inp.value) : inp.value;
       saveState();
+      if(f==="barName") render(); // il nome compare anche nel titolo in cima
     });
   });
   document.querySelectorAll("[data-setting-bool]").forEach(function(inp){
@@ -2447,31 +3020,74 @@ function wireEvents(){
   document.querySelectorAll("[data-picco-day]").forEach(function(inp){
     inp.addEventListener("change", function(){
       state.settings.giorniPicco[inp.getAttribute("data-picco-day")] = inp.checked;
-      // questa checkbox compare in due card (Priorità e Giorni di massima
-      // affluenza): un render() tiene sincronizzate entrambe le copie e
-      // aggiorna anche il riepilogo "Priorità 3" che dipende da questo dato.
+      // cambia quante persone servono al mattino di quel giorno: il render() rinfresca
+      // anche l'anteprima degli slot e il banner di validazione
       saveState(); render();
     });
   });
-  document.querySelectorAll("[data-priorita2-day]").forEach(function(inp){
-    inp.addEventListener("change", function(){
-      state.settings.giorniPriorita2[inp.getAttribute("data-priorita2-day")] = inp.checked;
-      saveState(); render();
-    });
+  // configurazioni di priorità salvate dall'utente
+  var cfgSelect = document.getElementById("cfg-priorita-select");
+  if(cfgSelect) cfgSelect.addEventListener("change", function(){ cfgSelezionataId = cfgSelect.value; });
+  function configSelezionata(){
+    var sel = document.getElementById("cfg-priorita-select");
+    if(!sel) return null;
+    cfgSelezionataId = sel.value;
+    var lista = state.settings.configurazioniPriorita || [];
+    for(var i=0;i<lista.length;i++){ if(lista[i].id===sel.value) return {cfg:lista[i], i:i}; }
+    return null;
+  }
+  var cfgSalva = document.getElementById("btn-cfg-salva");
+  if(cfgSalva) cfgSalva.addEventListener("click", function(){
+    var campo = document.getElementById("cfg-priorita-nome");
+    var nome = (campo && campo.value || "").trim();
+    if(!nome){ alert("Dai un nome alla configurazione prima di salvarla (per esempio “Estate” o “Settimana della sagra”)."); if(campo) campo.focus(); return; }
+    if(!Array.isArray(state.settings.configurazioniPriorita)) state.settings.configurazioniPriorita = [];
+    var lista = state.settings.configurazioniPriorita;
+    var esistente = lista.filter(function(c){ return String(c.nome||"").toLowerCase()===nome.toLowerCase(); })[0];
+    if(esistente && !confirm("Esiste già una configurazione chiamata “"+esistente.nome+"”. Sovrascriverla con quella attuale?")) return;
+    var snap = istantaneaPriorita(state.settings);
+    snap.nome = nome;
+    snap.salvataIl = new Date().toISOString();
+    if(esistente){ snap.id = esistente.id; lista[lista.indexOf(esistente)] = snap; }
+    else { snap.id = uid(); lista.push(snap); }
+    cfgSelezionataId = snap.id;   // appena salvata è quella su cui si sta lavorando
+    saveState(); render();
   });
-  var applicaPresetBtn = document.getElementById("btn-applica-preset");
-  if(applicaPresetBtn) applicaPresetBtn.addEventListener("click", function(){
-    var presetSel = document.getElementById("pp-preset-select");
-    var preset = PRIORITY_PRESETS[presetSel.value];
-    if(!preset) return;
-    if(!confirm("Applicare la configurazione \""+preset.label+"\"? Questo sovrascriverà l'ordine dei reparti e le priorità di giorno/fascia con quelli di questa configurazione (resterà comunque tutto modificabile dopo).")) return;
-    var cloneDayMap = function(m){ var o={}; DAYS.forEach(function(d){ o[d]=!!m[d]; }); return o; };
-    state.settings.ordinePriorita = preset.ordinePriorita.slice();
-    state.settings.giorniPicco = cloneDayMap(preset.giorniPicco);
-    state.settings.giorniPriorita2 = cloneDayMap(preset.giorniPriorita2);
-    var pf = {};
-    DAYS.forEach(function(d){ pf[d] = {mattina:preset.prioritaFasce[d].mattina, pomeriggio:preset.prioritaFasce[d].pomeriggio, sera:preset.prioritaFasce[d].sera}; });
-    state.settings.prioritaFasce = pf;
+  var cfgApplica = document.getElementById("btn-cfg-applica");
+  if(cfgApplica) cfgApplica.addEventListener("click", function(){
+    var sel = configSelezionata();
+    if(!sel) return;
+    if(!confirm("Applicare la configurazione “"+sel.cfg.nome+"”?\n\nSostituisce l’ordine dei reparti, i giorni di massima affluenza e le priorità di ogni giorno e fascia. I turni già generati non cambiano.")) return;
+    applicaIstantaneaPriorita(state.settings, sel.cfg);
+    saveState(); render();
+  });
+  var cfgAggiorna = document.getElementById("btn-cfg-aggiorna");
+  if(cfgAggiorna) cfgAggiorna.addEventListener("click", function(){
+    var sel = configSelezionata();
+    if(!sel) return;
+    if(!confirm("Aggiornare “"+sel.cfg.nome+"” con le impostazioni di priorità attuali?")) return;
+    var snap = istantaneaPriorita(state.settings);
+    snap.id = sel.cfg.id; snap.nome = sel.cfg.nome; snap.salvataIl = new Date().toISOString();
+    state.settings.configurazioniPriorita[sel.i] = snap;
+    saveState(); render();
+  });
+  var cfgRinomina = document.getElementById("btn-cfg-rinomina");
+  if(cfgRinomina) cfgRinomina.addEventListener("click", function(){
+    var sel = configSelezionata();
+    if(!sel) return;
+    var nuovo = prompt("Nuovo nome per questa configurazione:", sel.cfg.nome);
+    if(nuovo===null) return;
+    nuovo = nuovo.trim();
+    if(!nuovo){ alert("Il nome non può essere vuoto."); return; }
+    sel.cfg.nome = nuovo;
+    saveState(); render();
+  });
+  var cfgElimina = document.getElementById("btn-cfg-elimina");
+  if(cfgElimina) cfgElimina.addEventListener("click", function(){
+    var sel = configSelezionata();
+    if(!sel) return;
+    if(!confirm("Eliminare la configurazione “"+sel.cfg.nome+"”?\n\nLe impostazioni attualmente in uso non cambiano.")) return;
+    state.settings.configurazioniPriorita.splice(sel.i,1);
     saveState(); render();
   });
   document.querySelectorAll("[data-ordine-priorita]").forEach(function(sel){
@@ -2498,6 +3114,7 @@ function wireEvents(){
     inp.addEventListener("change", function(){
       var parts = inp.getAttribute("data-orario-giorno").split("|");
       var day = parts[0], fascia = parts[1], campo = parts[2];
+      if(!/^\d{2}:\d{2}$/.test(inp.value)){ render(); return; } // campo svuotato: si ripristina
       if(!state.settings.orariGiorni[day][fascia]) state.settings.orariGiorni[day][fascia] = {};
       state.settings.orariGiorni[day][fascia][campo] = inp.value;
       saveState(); render();
@@ -2589,7 +3206,10 @@ function wireEvents(){
       if(!parsed || typeof parsed!=="object" || !parsed.settings || !parsed.employees) throw new Error("formato non valido");
       if(!confirm("Questo sostituirà tutti i dati attuali (personale, impostazioni, turni salvati). Continuare?")) return;
       parsed.isSeed = false;
-      state = parsed;
+      // un backup vecchio non ha i campi introdotti dopo: senza normalizzare, mezza
+      // pagina lavorerebbe su oggetti inesistenti e le modifiche non verrebbero salvate
+      state = normalizeState(parsed);
+      state.isSeed = false;
       if(!state.weeks) state.weeks = {};
       saveState(); render();
     }catch(e){ alert("Il testo incollato non è un backup valido: "+e.message); }
@@ -2837,7 +3457,52 @@ function wireEvents(){
       var st = state.settings.stagioni[Number(b.getAttribute("data-stagione-copia"))];
       if(!st) return;
       st.orariGiorni = JSON.parse(JSON.stringify(state.settings.orariGiorni));
-      alert("Gli orari attuali sono stati copiati nella stagione “"+(st.nome||"senza nome")+"”.\n\nDa qui in poi puoi cambiare gli orari standard senza toccare quelli della stagione.");
+      saveState(); render();
+    });
+  });
+  document.querySelectorAll("[data-stagione-ricopia]").forEach(function(b){
+    b.addEventListener("click", function(){
+      var st = state.settings.stagioni[Number(b.getAttribute("data-stagione-ricopia"))];
+      if(!st) return;
+      if(!confirm("Ripartire dagli orari standard per la stagione “"+(st.nome||"senza nome")+"”?\n\nGli orari che hai scritto qui dentro vengono sostituiti da una copia di quelli standard.")) return;
+      st.orariGiorni = JSON.parse(JSON.stringify(state.settings.orariGiorni));
+      saveState(); render();
+    });
+  });
+  document.querySelectorAll("[data-stagione-azzera]").forEach(function(b){
+    b.addEventListener("click", function(){
+      var st = state.settings.stagioni[Number(b.getAttribute("data-stagione-azzera"))];
+      if(!st) return;
+      if(!confirm("Nel periodo della stagione “"+(st.nome||"senza nome")+"” torneranno a valere gli orari standard.\n\nGli orari scritti qui dentro vengono persi. Procedere?")) return;
+      delete st.orariGiorni;
+      saveState(); render();
+    });
+  });
+  document.querySelectorAll("[data-stagione-orario]").forEach(function(inp){
+    inp.addEventListener("change", function(){
+      var parts = inp.getAttribute("data-stagione-orario").split("|");
+      var st = state.settings.stagioni[Number(parts[0])];
+      if(!st || !st.orariGiorni) return;
+      var day = parts[1], fascia = parts[2], campo = parts[3];
+      // un campo orario si può svuotare: salvare "" produrrebbe ore NaN in tutta la
+      // settimana, quindi si rifiuta e si rimette il valore che c'era
+      if(!/^\d{2}:\d{2}$/.test(inp.value)){ render(); return; }
+      if(!st.orariGiorni[day]) st.orariGiorni[day] = {fascia1:{}, fascia2:null};
+      if(!st.orariGiorni[day][fascia]) st.orariGiorni[day][fascia] = {};
+      st.orariGiorni[day][fascia][campo] = inp.value;
+      saveState(); render();
+    });
+  });
+  document.querySelectorAll("[data-stagione-fascia2]").forEach(function(cb){
+    cb.addEventListener("change", function(){
+      var parts = cb.getAttribute("data-stagione-fascia2").split("|");
+      var st = state.settings.stagioni[Number(parts[0])];
+      if(!st || !st.orariGiorni) return;
+      var day = parts[1];
+      if(!st.orariGiorni[day]) st.orariGiorni[day] = {fascia1:JSON.parse(JSON.stringify(state.settings.orariGiorni[day].fascia1)), fascia2:null};
+      st.orariGiorni[day].fascia2 = cb.checked
+        ? (JSON.parse(JSON.stringify(state.settings.orariGiorni[day].fascia2 || {inizio:"19:00", fine:"23:00"})))
+        : null;
       saveState(); render();
     });
   });
@@ -2883,7 +3548,7 @@ function wireEvents(){
       var d = state.settings.deroghe[data];
       if(!d) return;
       var giorno = DAYS[(new Date(data+"T00:00:00").getDay()+6)%7];
-      if(!d.orari) d.orari = JSON.parse(JSON.stringify(configurazioneDelGiorno(state.settings, giorno, null).orari));
+      if(!d.orari) d.orari = JSON.parse(JSON.stringify(configurazioneDelGiorno(state.settings, giorno, data).orari));
       if(!d.orari[fascia]) d.orari[fascia] = {};
       d.orari[fascia][campo] = inp.value;
       saveState(); render();
@@ -2914,6 +3579,71 @@ function wireEvents(){
     if(!data){ alert("Scegli una data."); return; }
     if(state.settings.deroghe[data]){ alert("Per il "+fmtDateLabel(data)+" c’è già un giorno speciale."); return; }
     state.settings.deroghe[data] = {nome:"", chiuso:false};
+    saveState(); render();
+  });
+
+  // suggerimenti di calendario: diventano giorni speciali normali, rifinibili come gli altri
+  document.querySelectorAll("[data-sugg-aggiungi]").forEach(function(b){
+    b.addEventListener("click", function(){
+      var data = b.getAttribute("data-sugg-aggiungi");
+      var nome = b.getAttribute("data-sugg-nome") || "";
+      if(state.settings.deroghe[data]){ alert("Per il "+fmtDateLabel(data)+" c’è già un giorno speciale."); render(); return; }
+      state.settings.deroghe[data] = {nome:nome, chiuso:false};
+      saveState(); render();
+    });
+  });
+  var nuovoEventoBtn = document.getElementById("btn-evento-locale-nuovo");
+  if(nuovoEventoBtn) nuovoEventoBtn.addEventListener("click", function(){
+    var mmdd = (document.getElementById("evento-locale-mmdd").value||"").trim();
+    var nome = (document.getElementById("evento-locale-nome").value||"").trim();
+    if(!/^\d{2}-\d{2}$/.test(mmdd)){ alert("Scrivi la data nel formato MM-GG, per esempio 06-29 per il 29 giugno."); return; }
+    var mese = Number(mmdd.slice(0,2)), giorno = Number(mmdd.slice(3,5));
+    // 02-30 e 04-31 non esistono, e il 29 febbraio non c'è tutti gli anni: se passassero,
+    // il giorno speciale finirebbe su una data che il calendario non produce mai
+    if(!giornoEsiste(2004, mese, giorno)){ alert("Questa data non esiste: controlla mese e giorno."); return; }
+    if(mese===2 && giorno===29){ alert("Il 29 febbraio esiste solo negli anni bisestili: per una ricorrenza annuale scegli un’altra data e usa i “Giorni speciali” per l’anno bisestile."); return; }
+    if(!nome){ alert("Dai un nome all’evento."); return; }
+    state.settings.azienda.eventiLocali.push({mmdd:mmdd, nome:nome});
+    state.settings.azienda.eventiLocali.sort(function(a,b){ return a.mmdd<b.mmdd?-1:a.mmdd>b.mmdd?1:0; });
+    saveState(); render();
+  });
+  document.querySelectorAll("[data-evento-locale-elimina]").forEach(function(b){
+    b.addEventListener("click", function(){
+      var i = Number(b.getAttribute("data-evento-locale-elimina"));
+      var e = state.settings.azienda.eventiLocali[i];
+      if(!e) return;
+      if(!confirm("Non suggerire più “"+e.nome+"”?")) return;
+      state.settings.azienda.eventiLocali.splice(i,1);
+      saveState(); render();
+    });
+  });
+
+  // anagrafica dell'azienda
+  document.querySelectorAll("[data-azienda]").forEach(function(inp){
+    inp.addEventListener("change", function(){
+      var campo = inp.getAttribute("data-azienda");
+      state.settings.azienda[campo] = inp.value.trim();
+      // cambiando regione l'elenco delle province si restringe, e comune/provincia
+      // cambiano i suggerimenti di calendario: in tutti i casi serve ridisegnare
+      if(campo==="regione"){
+        var ammesse = REGIONI[state.settings.azienda.regione] || [];
+        if(state.settings.azienda.provincia && ammesse.indexOf(state.settings.azienda.provincia)===-1){
+          state.settings.azienda.provincia = "";
+        }
+      }
+      saveState(); render();
+    });
+  });
+  var inputLogo = document.getElementById("input-logo");
+  if(inputLogo) inputLogo.addEventListener("change", function(){
+    var file = inputLogo.files && inputLogo.files[0];
+    if(!file) return;
+    caricaLogo(file);
+  });
+  var rimuoviLogo = document.getElementById("btn-logo-rimuovi");
+  if(rimuoviLogo) rimuoviLogo.addEventListener("click", function(){
+    if(!confirm("Rimuovere il logo?")) return;
+    state.settings.azienda.logo = null;
     saveState(); render();
   });
 

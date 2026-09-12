@@ -122,6 +122,27 @@ label.field input:focus,label.field select:focus{border-color:var(--accent);}
 .hint{color:var(--ink-muted);}
 .hero-logo{max-height:56px;max-width:180px;border-radius:8px;display:block;margin-bottom:10px;}
 .logo-preview{max-height:80px;max-width:240px;border:1px solid var(--border);border-radius:8px;padding:6px;background:var(--bg);}
+.imp-nav{margin-bottom:18px;}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+.cal-dow{font-size:.68rem;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;text-align:center;padding-bottom:4px;}
+.cal-cell{min-height:58px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--ink);
+  display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:2px;padding:6px 7px;text-align:left;font:inherit;cursor:pointer;}
+.cal-cell:hover{border-color:var(--accent);}
+.cal-vuota{border:none;background:transparent;cursor:default;}
+.cal-num{font-weight:700;font-size:.9rem;}
+.cal-nota{font-size:.62rem;line-height:1.15;color:var(--ink-muted);overflow:hidden;}
+.cal-passata{opacity:.5;}
+.cal-oggi{box-shadow:inset 0 0 0 2px var(--accent);}
+.cal-chiuso-routine{background:var(--surface-2);color:var(--ink-muted);}
+.cal-chiuso-extra{background:var(--danger-soft);border-color:var(--danger);color:var(--danger);}
+.cal-chiuso-extra .cal-nota{color:var(--danger);}
+.cal-aperto-extra{background:var(--teal-soft);border-color:var(--teal);color:var(--teal);}
+.cal-aperto-extra .cal-nota{color:var(--teal);}
+.cal-speciale{background:var(--amber-soft);border-color:var(--accent);}
+.cal-legenda{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;font-size:.74rem;color:var(--ink-muted);align-items:center;}
+.cal-legenda span{display:flex;align-items:center;gap:6px;}
+.cal-box{width:14px;height:14px;border-radius:4px;border:1px solid var(--border);display:inline-block;}
+.giorno-chiuso{background:repeating-linear-gradient(45deg,var(--surface-2),var(--surface-2) 6px,transparent 6px,transparent 12px);}
 .sugg-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:7px 0;border-bottom:1px solid var(--border);}
 .sugg-row:last-child{border-bottom:none;}
 .sugg-data{min-width:132px;font-weight:700;font-size:.84rem;}
@@ -292,9 +313,47 @@ function defaultOrariGiorni(apertura, chiusuraFeriale, chiusuraWeekend, puntoMed
   DAYS.forEach(function(d){
     var weekend = isWeekend(d);
     out[d] = {
+      chiuso: false,   // chiusura di routine: questo giorno il locale non apre mai
       fascia1: { inizio: apertura, fine: weekend?chiusuraWeekend:chiusuraFeriale, puntoMedio: weekend?puntoMedioWeekend:puntoMedioFeriale },
       fascia2: null
     };
+  });
+  return out;
+}
+/* ---------- organico ideale: quante persone per reparto, giorno e fascia ----------
+   È la sorgente di verità unica di "quante persone servono". I vecchi campi
+   salaNormale/bancoNormale/salaPicco/bancoPicco confluiscono qui in migrazione e non
+   vengono più letti da nessuna parte: quello che si vede nella tabella è quello che
+   il programma userà davvero. */
+var REPARTI = ["cucina","banco","sala"];
+function defaultOrganico(normale, picco, giorniPicco){
+  var out = {};
+  DAYS.forEach(function(d){
+    var base = (giorniPicco && giorniPicco[d]) ? picco : normale;
+    out[d] = {};
+    BANDE.forEach(function(b){
+      // il rinforzo dei giorni di massima affluenza storicamente valeva solo la mattina
+      var src = (b==="mattina") ? base : normale;
+      out[d][b] = {cucina: b==="pomeriggio" ? 0 : (Number(src.cucina)||0),
+                   banco:Number(src.banco)||0, sala:Number(src.sala)||0};
+    });
+  });
+  return out;
+}
+function normalizzaOrganico(org, fallback){
+  var out = {};
+  DAYS.forEach(function(d){
+    out[d] = {};
+    BANDE.forEach(function(b){
+      var src = (org && org[d] && org[d][b]) || (fallback && fallback[d] && fallback[d][b]) || {};
+      out[d][b] = {
+        // il pomeriggio non ha un turno di cucina proprio (fa parte del pranzo): tenerlo
+        // a zero evita che un numero mai usato faccia credere che la cucina sia coperta
+        cucina: b==="pomeriggio" ? 0 : Math.max(0, Math.min(20, Number(src.cucina)||0)),
+        banco:  Math.max(0, Math.min(20, Number(src.banco)||0)),
+        sala:   Math.max(0, Math.min(20, Number(src.sala)||0))
+      };
+    });
   });
   return out;
 }
@@ -339,18 +398,17 @@ function defaultSettings(){
     puntoMedioFeriale:puntoMedioFeriale,
     puntoMedioWeekend:puntoMedioWeekend,
     spezzatiDiDefault:false,
-    salaNormale:1,
-    bancoNormale:1,
-    salaPicco:2,
-    bancoPicco:1,
     giorniPicco:giorniPicco,
     giorniPriorita2:giorniPriorita2,
     oreGiornaliereMax:10,
     paritaStraordinariEnabled:true,
     paritaStraordinariFinestra:4,
+    allungaPerContratto:true,
+    allungaMaxMinuti:0,
     ordinePriorita:["cucina","banco","sala"],
     configurazioniPriorita:[],
     azienda: defaultAzienda(),
+    organico: defaultOrganico({sala:1, banco:1, cucina:1}, {sala:2, banco:1, cucina:1}, giorniPicco),
     orariGiorni: defaultOrariGiorni(apertura, chiusuraFeriale, chiusuraWeekend, puntoMedioFeriale, puntoMedioWeekend),
     cucinaSegueFasce:false,
     orariCucina: defaultOrariCucina(cuocoInizio, fineTurnoCuocoCapo, fineTurnoCuocoRiserva),
@@ -471,11 +529,16 @@ function normalizeState(parsed){
   }
   delete parsed.settings.chiusuraCucinaCapo;
   delete parsed.settings.chiusuraCucinaRiserva;
+  if(parsed.settings.giorniPicco===undefined) parsed.settings.giorniPicco = defaultSettings().giorniPicco;
   if(parsed.settings.giorniPriorita2===undefined) parsed.settings.giorniPriorita2 = defaultSettings().giorniPriorita2;
   delete parsed.settings.oreGiornaliereBase; // manopola mai collegata a nessuna logica: rimossa
   if(parsed.settings.oreGiornaliereMax===undefined) parsed.settings.oreGiornaliereMax = defaultSettings().oreGiornaliereMax;
   if(parsed.settings.paritaStraordinariEnabled===undefined) parsed.settings.paritaStraordinariEnabled = defaultSettings().paritaStraordinariEnabled;
   if(parsed.settings.paritaStraordinariFinestra===undefined) parsed.settings.paritaStraordinariFinestra = defaultSettings().paritaStraordinariFinestra;
+  // allungamento dei turni per avvicinarsi alle ore di contratto: fino a ieri era
+  // sempre attivo e non si poteva spegnere, quindi chi aggiorna lo trova acceso
+  if(parsed.settings.allungaPerContratto===undefined) parsed.settings.allungaPerContratto = true;
+  if(parsed.settings.allungaMaxMinuti===undefined) parsed.settings.allungaMaxMinuti = 0;
   delete parsed.settings.prioritaProfilo; // le configurazioni di fabbrica non esistono più
   if(parsed.settings.ordinePriorita===undefined) parsed.settings.ordinePriorita = defaultSettings().ordinePriorita;
   parsed.settings.ordinePriorita = normalizePriorityOrder(parsed.settings.ordinePriorita);
@@ -521,6 +584,7 @@ function normalizeState(parsed){
     if(!parsed.settings.orariGiorni[d] || !parsed.settings.orariGiorni[d].fascia1){
       parsed.settings.orariGiorni[d] = orariBase[d];
     }
+    if(parsed.settings.orariGiorni[d].chiuso===undefined) parsed.settings.orariGiorni[d].chiuso = false;
   });
   parsed.settings.stagioni.forEach(function(st){
     if(!st || !st.orariGiorni) return;
@@ -528,11 +592,26 @@ function normalizeState(parsed){
       var og = st.orariGiorni[d];
       if(!og || !og.fascia1){
         st.orariGiorni[d] = JSON.parse(JSON.stringify(parsed.settings.orariGiorni[d]));
-      } else if(og.fascia2===undefined){
-        og.fascia2 = null;
+      } else {
+        if(og.fascia2===undefined) og.fascia2 = null;
+        if(og.chiuso===undefined) og.chiuso = false;
       }
     });
   });
+  // migrazione dell'organico: i quattro numeri globali di prima diventano la tabella
+  // giorno × fascia × reparto. Stessi turni generati, ma da qui in poi modificabili
+  // cella per cella. I vecchi campi spariscono: due sorgenti di verità sullo stesso
+  // numero sono il modo più veloce per non capire più perché manca una persona.
+  if(!parsed.settings.organico){
+    parsed.settings.organico = defaultOrganico(
+      {sala: Number(parsed.settings.salaNormale)||0, banco: Number(parsed.settings.bancoNormale)||0, cucina: 1},
+      {sala: Number(parsed.settings.salaPicco)||0,   banco: Number(parsed.settings.bancoPicco)||0,   cucina: 1},
+      parsed.settings.giorniPicco
+    );
+  }
+  parsed.settings.organico = normalizzaOrganico(parsed.settings.organico, defaultSettings().organico);
+  delete parsed.settings.salaNormale; delete parsed.settings.bancoNormale;
+  delete parsed.settings.salaPicco;   delete parsed.settings.bancoPicco;
   if(!parsed.settings.deroghe || typeof parsed.settings.deroghe!=="object") parsed.settings.deroghe = {};
   if(parsed.settings.regoleTutela===undefined) parsed.settings.regoleTutela = defaultRegoleTutela();
   var rtDef = defaultRegoleTutela();
@@ -570,7 +649,7 @@ function normalizeState(parsed){
       var giorno = wk.assign[day];
       if(!giorno) return;
       var dataGiorno = addDays(weekStart, idx);
-      ["cuoco","cuocoSera"].forEach(function(campo){
+      Object.keys(giorno).filter(isCampoCuoco).forEach(function(campo){
         var c = giorno[campo];
         if(!c || !c.inizio || !isTimeOnly(c.inizio)) return;
         var inizioHHMM = c.inizio, fineHHMM = c.fine;
@@ -580,7 +659,7 @@ function normalizeState(parsed){
         migrato = true;
       });
       Object.keys(giorno).forEach(function(key){
-        if(key==="cuoco" || key==="cuocoSera") return;
+        if(isCampoCuoco(key)) return;
         var lista = giorno[key];
         if(!Array.isArray(lista)) return;
         lista.forEach(function(a){
@@ -610,6 +689,7 @@ var state = null;
 var activeTab = "turni";
 var currentWeek = mondayOf(isoDate(new Date()));
 var currentAssenzeMonth = isoDate(new Date()).slice(0,7);
+var currentChiusureMonth = isoDate(new Date()).slice(0,7);
 var editingEmpId = null;
 var USE_API = false;
 var apiVersion = 0;
@@ -743,8 +823,14 @@ function caricaSessione(){
 function applicaSolaLettura(){
   if(!soloLettura()) return;
   var app = document.getElementById("app");
+  // i controlli che servono solo a spostarsi (schede, sezioni delle impostazioni,
+  // scelta della settimana o del mese) non modificano niente: disabilitarli
+  // renderebbe metà del programma invisibile a chi ha la sola lettura
+  var navigazione = ["locale-picker","imp-sezione","week-pick","week-prev","week-next",
+                     "assenze-mese-pick","assenze-mese-prev","assenze-mese-next",
+                     "chiusure-mese-pick","chiusure-mese-prev","chiusure-mese-next"];
   app.querySelectorAll("button, input, select, textarea").forEach(function(el){
-    if(el.hasAttribute("data-tab") || el.id==="locale-picker") return;
+    if(el.hasAttribute("data-tab") || navigazione.indexOf(el.id)!==-1) return;
     el.disabled = true;
   });
 }
@@ -876,30 +962,52 @@ function derogaDelGiorno(settings, dateStr){
 /* La configurazione effettiva di un giorno: base settimanale → stagione → deroga. */
 function configurazioneDelGiorno(settings, day, dateStr){
   var base = settings.orariGiorni[day] || {fascia1:{inizio:"08:00",fine:"21:00",puntoMedio:"14:30"}, fascia2:null};
+  var orgBase = (settings.organico && settings.organico[day]) || {};
+  var organico = {};
+  BANDE.forEach(function(b){
+    var src = orgBase[b] || {};
+    organico[b] = {cucina:Number(src.cucina)||0, banco:Number(src.banco)||0, sala:Number(src.sala)||0};
+  });
   var out = {
     orari: base,
     priorita: (settings.prioritaFasce && settings.prioritaFasce[day]) || {mattina:3,pomeriggio:3,sera:3},
-    salaNormale: settings.salaNormale,
-    bancoNormale: settings.bancoNormale,
-    chiuso: false,
+    organico: organico,
+    chiuso: !!base.chiuso,          // chiusura di routine, ogni settimana
+    chiusuraRoutine: !!base.chiuso,
     etichetta: null
   };
   if(!dateStr) return out;
   var stag = stagioneAttiva(settings, dateStr);
   if(stag){
     out.etichetta = stag.nome;
-    if(stag.orariGiorni && stag.orariGiorni[day]) out.orari = stag.orariGiorni[day];
+    if(stag.orariGiorni && stag.orariGiorni[day]){
+      out.orari = stag.orariGiorni[day];
+      // in stagione un giorno può aprire anche se di norma è chiuso, e viceversa
+      out.chiuso = !!stag.orariGiorni[day].chiuso;
+      out.chiusuraRoutine = out.chiuso;
+    }
   }
+  if(out.chiuso && !derogaDelGiorno(settings, dateStr)) return out;
   var der = derogaDelGiorno(settings, dateStr);
   if(der){
     out.etichetta = der.nome || "Giorno speciale";
     out.deroga = true;
-    if(der.chiuso){ out.chiuso = true; return out; }
+    if(der.chiuso){ out.chiuso = true; out.chiusuraRoutine = false; out.chiusuraStraordinaria = true; return out; }
+    // una data speciale può anche RIAPRIRE un giorno di chiusura di routine
+    if(der.aperto){ out.chiuso = false; out.chiusuraRoutine = false; }
+    if(out.chiuso) return out;
     if(der.orari) out.orari = der.orari;
     if(der.priorita) out.priorita = der.priorita;
     if(der.staff){
-      if(der.staff.sala!==undefined && der.staff.sala!==null){ out.salaNormale = der.staff.sala; out.staffDeroga = true; }
-      if(der.staff.banco!==undefined && der.staff.banco!==null){ out.bancoNormale = der.staff.banco; out.staffDeroga = true; }
+      REPARTI.forEach(function(r){
+        if(der.staff[r]!==undefined && der.staff[r]!==null){
+          // stesso tetto della tabella dell'organico: un 500 digitato per sbaglio
+          // produrrebbe 500 righe in griglia e pianterebbe la pagina
+          var n = Math.max(0, Math.min(20, Number(der.staff[r])||0));
+          BANDE.forEach(function(b){ out.organico[b][r] = (b==="pomeriggio" && r==="cucina") ? 0 : n; });
+          out.staffDeroga = true;
+        }
+      });
     }
   }
   return out;
@@ -1023,49 +1131,154 @@ function suggerimentiUtili(settings){
 }
 function addDaysDate(d, n){ var x = new Date(d.getTime()); x.setDate(x.getDate()+n); return x; }
 
+/* ---------- più cuochi per lo stesso servizio ----------
+   Il primo cuoco resta esattamente dov'era (`assign[day].cuoco` e `.cuocoSera`), così
+   tutti i turni già salvati continuano a funzionare senza migrazione. I cuochi in più
+   si aggiungono come `cuoco2`, `cuoco3`, `cuocoSera2`… — stessa forma di record, solo
+   una chiave diversa. Le funzioni qui sotto sono l'unico posto che sa come si chiamano. */
+function cuocoSlotKey(fascia, i){
+  var base = fascia==="fascia2" ? "cuoco_sera" : "cuoco";
+  return i===0 ? base : base+"_"+(i+1);
+}
+function cuocoAssignField(fascia, i){
+  var base = fascia==="fascia2" ? "cuocoSera" : "cuoco";
+  return i===0 ? base : base+(i+1);
+}
+/* la chiave dentro wk.assign è di un cuoco? (cuoco, cuocoSera, cuoco2, cuocoSera3…) */
+function isCampoCuoco(key){ return /^cuoco(Sera)?[0-9]*$/.test(String(key)); }
+/* la chiave usata nella griglia dei turni è di un cuoco? (cuoco, cuoco_sera, cuoco_2…) */
+function isSlotCuoco(slotKey){ return /^cuoco(_sera)?(_[0-9]+)?$/.test(String(slotKey)); }
+function fasciaDiSlotCuoco(slotKey){ return String(slotKey).indexOf("_sera")!==-1 ? "fascia2" : "fascia1"; }
+function indiceDiSlotCuoco(slotKey){
+  var m = /_([0-9]+)$/.exec(String(slotKey));
+  return m ? Number(m[1])-1 : 0;
+}
+function slotCuocoACampo(slotKey){
+  return cuocoAssignField(fasciaDiSlotCuoco(slotKey), indiceDiSlotCuoco(slotKey));
+}
+function labelCampo(key){
+  // hasOwnProperty e non l'accesso diretto: chiavi come "constructor" restituirebbero
+  // una funzione, che finirebbe concatenata dentro l'HTML
+  if(Object.prototype.hasOwnProperty.call(SLOT_LABELS, key)) return SLOT_LABELS[key];
+  if(isCampoCuoco(key)){
+    var sera = String(key).indexOf("Sera")!==-1;
+    var m = /([0-9]+)$/.exec(String(key));
+    var n = m ? Number(m[1]) : 1;
+    return (sera ? "Cuoco · cena" : "Cuoco") + (n>1 ? " "+n : "");
+  }
+  // chiave sconosciuta (backup manomesso, versione futura): mai stampata così com'è
+  return "Postazione";
+}
+/* `totale` = quanti posti di quel servizio ci sono in griglia: con più di un cuoco
+   anche il primo va numerato, altrimenti la riga "Cuoco" accanto a "Cuoco 2" sembra
+   un'altra cosa. */
+function labelSlot(slotKey, totale){
+  if(isSlotCuoco(slotKey)){
+    var sera = fasciaDiSlotCuoco(slotKey)==="fascia2";
+    var base = sera ? "Cuoco · cena" : "Cuoco";
+    if(indiceDiSlotCuoco(slotKey) > 0 || (totale && totale > 1)) return base+" "+(indiceDiSlotCuoco(slotKey)+1);
+    return base;
+  }
+  return Object.prototype.hasOwnProperty.call(SLOT_LABELS, slotKey) ? SLOT_LABELS[slotKey] : "Postazione";
+}
+
+/* Quanti cuochi servono per un turno di cucina, secondo l'organico del giorno.
+   Il pranzo legge la riga "mattina", la cena la riga "sera": la cucina ha al massimo
+   due servizi, non tre. */
+function cuochiRichiesti(settings, day, dateStr, fascia){
+  var cfg = configurazioneDelGiorno(settings, day, dateStr);
+  if(cfg.chiuso) return 0;
+  var banda = fascia==="fascia2" ? "sera" : "mattina";
+  return Math.max(0, Number(cfg.organico[banda] && cfg.organico[banda].cucina) || 0);
+}
 function getSlotsForDay(settings, day, dateStr){
   var cfg = configurazioneDelGiorno(settings, day, dateStr);
   if(cfg.chiuso) return []; // locale chiuso: nessun turno da coprire
   var og = cfg.orari;
   var f1 = og.fascia1;
-  var picco = !!settings.giorniPicco[day];
-  // il rinforzo del giorno di picco vale finché non c'è una deroga che dice diversamente:
-  // una data speciale è più specifica di una regola settimanale, e deve vincere
-  var salaMattina = cfg.staffDeroga ? cfg.salaNormale : (picco ? settings.salaPicco : cfg.salaNormale);
-  var bancoMattina = cfg.staffDeroga ? cfg.bancoNormale : (picco ? settings.bancoPicco : cfg.bancoNormale);
+  var org = cfg.organico;
   var slots = [];
-  if(!settings.cucinaSegueFasce){
-    slots.push({key:"cuoco", label:"Cuoco", turno:"mattina", count:1, inizio:settings.cuocoInizio, fine:null, isCuoco:true});
-  } else {
-    var ocF1 = settings.orariCucina[day] && settings.orariCucina[day].fascia1;
-    slots.push({key:"cuoco", label:"Cuoco · pranzo", turno:"mattina", count:1, inizio:(ocF1?ocF1.inizio:settings.cuocoInizio), fine:null, isCuoco:true});
+  var nPranzo = Math.max(0, Number(org.mattina.cucina)||0);
+  var etichettaCuoco = settings.cucinaSegueFasce ? "Cuoco · pranzo" : "Cuoco";
+  var ocF1 = settings.orariCucina[day] && settings.orariCucina[day].fascia1;
+  var inizioPranzo = settings.cucinaSegueFasce ? (ocF1?ocF1.inizio:settings.cuocoInizio) : settings.cuocoInizio;
+  for(var c=0;c<nPranzo;c++){
+    slots.push({key:cuocoSlotKey("fascia1", c), label:etichettaCuoco+(nPranzo>1?" "+(c+1):""),
+                turno:"mattina", count:1, inizio:inizioPranzo, fine:null, isCuoco:true, indiceCuoco:c, fascia:"fascia1"});
   }
-  slots.push({key:"banco_mattina", label:"Banco", turno:"mattina", count:bancoMattina, inizio:settings.bancoInizio, fine:f1.puntoMedio, ruolo:"banco"});
-  slots.push({key:"sala_mattina", label:"Sala", turno:"mattina", count:salaMattina, inizio:settings.camerierArrivo, fine:f1.puntoMedio, ruolo:"sala"});
-  // pomeriggio e sera seguono la stessa configurazione del giorno della mattina: se una
-  // deroga dice "a Ferragosto in sala siamo in quattro", vale per tutta la giornata
-  slots.push({key:"banco_pomeriggio", label:"Banco", turno:"pomeriggio", count:cfg.bancoNormale, inizio:f1.puntoMedio, fine:f1.fine, ruolo:"banco"});
-  slots.push({key:"sala_pomeriggio", label:"Sala", turno:"pomeriggio", count:cfg.salaNormale, inizio:f1.puntoMedio, fine:f1.fine, ruolo:"sala"});
+  slots.push({key:"banco_mattina", label:"Banco", turno:"mattina", count:org.mattina.banco, inizio:settings.bancoInizio, fine:f1.puntoMedio, ruolo:"banco"});
+  slots.push({key:"sala_mattina", label:"Sala", turno:"mattina", count:org.mattina.sala, inizio:settings.camerierArrivo, fine:f1.puntoMedio, ruolo:"sala"});
+  slots.push({key:"banco_pomeriggio", label:"Banco", turno:"pomeriggio", count:org.pomeriggio.banco, inizio:f1.puntoMedio, fine:f1.fine, ruolo:"banco"});
+  slots.push({key:"sala_pomeriggio", label:"Sala", turno:"pomeriggio", count:org.pomeriggio.sala, inizio:f1.puntoMedio, fine:f1.fine, ruolo:"sala"});
   if(og.fascia2){
     var f2 = og.fascia2;
-    if(settings.cucinaSegueFasce && settings.orariCucina[day] && settings.orariCucina[day].fascia2){
-      slots.push({key:"cuoco_sera", label:"Cuoco · cena", turno:"sera", count:1, inizio:settings.orariCucina[day].fascia2.inizio, fine:null, isCuoco:true});
+    var ocF2 = settings.orariCucina[day] && settings.orariCucina[day].fascia2;
+    if(settings.cucinaSegueFasce && ocF2){
+      var nCena = Math.max(0, Number(org.sera.cucina)||0);
+      for(var c2=0;c2<nCena;c2++){
+        slots.push({key:cuocoSlotKey("fascia2", c2), label:"Cuoco · cena"+(nCena>1?" "+(c2+1):""),
+                    turno:"sera", count:1, inizio:ocF2.inizio, fine:null, isCuoco:true, indiceCuoco:c2, fascia:"fascia2"});
+      }
     }
-    slots.push({key:"banco_sera", label:"Banco", turno:"sera", count:cfg.bancoNormale, inizio:f2.inizio, fine:f2.fine, ruolo:"banco"});
-    slots.push({key:"sala_sera", label:"Sala", turno:"sera", count:cfg.salaNormale, inizio:f2.inizio, fine:f2.fine, ruolo:"sala"});
+    slots.push({key:"banco_sera", label:"Banco", turno:"sera", count:org.sera.banco, inizio:f2.inizio, fine:f2.fine, ruolo:"banco"});
+    slots.push({key:"sala_sera", label:"Sala", turno:"sera", count:org.sera.sala, inizio:f2.inizio, fine:f2.fine, ruolo:"sala"});
   }
   return slots;
 }
-function computeSlotOrder(settings, weekStart){
-  var order = ["cuoco","banco_mattina","sala_mattina","banco_pomeriggio","sala_pomeriggio"];
-  var anyFascia2 = DAYS.some(function(d, i){
-    var cfg = configurazioneDelGiorno(settings, d, weekStart ? addDays(weekStart, i) : null);
-    return !cfg.chiuso && cfg.orari && cfg.orari.fascia2;
+/* Le chiavi che, in questa settimana, hanno davvero qualcuno assegnato. Servono a
+   non far sparire dalla griglia un turno che nel modello continua a esistere: se
+   l'organico cala dopo la generazione, quelle ore continuerebbero a contare nel monte
+   ore e nei riposi senza che nessuno possa più vederle o cancellarle. */
+function chiaviAssegnate(wk){
+  var out = {};
+  if(!wk || !wk.assign) return out;
+  DAYS.forEach(function(day){
+    var g = wk.assign[day];
+    if(!g) return;
+    Object.keys(g).forEach(function(key){
+      var v = g[key];
+      if(!v) return;
+      if(isCampoCuoco(key)){ if(v.empId) out[campoCuocoASlot(key)] = true; return; }
+      if(Array.isArray(v) && v.some(function(a){ return a && a.empId; })) out[key] = true;
+    });
   });
-  if(anyFascia2){
-    if(settings.cucinaSegueFasce) order.splice(1,0,"cuoco_sera");
-    order.push("banco_sera","sala_sera");
-  }
+  return out;
+}
+function campoCuocoASlot(campo){
+  var sera = String(campo).indexOf("Sera")!==-1;
+  var m = /([0-9]+)$/.exec(String(campo));
+  return cuocoSlotKey(sera?"fascia2":"fascia1", m ? Number(m[1])-1 : 0);
+}
+function computeSlotOrder(settings, weekStart, wk){
+  // quante righe cuoco servono: il massimo richiesto in un qualunque giorno della
+  // settimana, così la griglia ha una riga per ogni posto in cucina
+  var maxPranzo = 1, maxCena = 0, anyFascia2 = false;
+  DAYS.forEach(function(d, i){
+    var data = weekStart ? addDays(weekStart, i) : null;
+    var cfg = configurazioneDelGiorno(settings, d, data);
+    if(cfg.chiuso) return;
+    maxPranzo = Math.max(maxPranzo, cuochiRichiesti(settings, d, data, "fascia1"));
+    if(cfg.orari && cfg.orari.fascia2){
+      anyFascia2 = true;
+      if(settings.cucinaSegueFasce && settings.orariCucina[d] && settings.orariCucina[d].fascia2){
+        maxCena = Math.max(maxCena, cuochiRichiesti(settings, d, data, "fascia2"));
+      }
+    }
+  });
+  // un turno già assegnato non sparisce mai dalla griglia, anche se la configurazione
+  // nel frattempo non lo prevede più: resta visibile e cancellabile
+  var presenti = chiaviAssegnate(wk);
+  Object.keys(presenti).forEach(function(k){
+    if(!isSlotCuoco(k)) return;
+    var n = indiceDiSlotCuoco(k)+1;
+    if(fasciaDiSlotCuoco(k)==="fascia2") maxCena = Math.max(maxCena, n);
+    else maxPranzo = Math.max(maxPranzo, n);
+  });
+  var order = [];
+  for(var i=0;i<maxPranzo;i++) order.push(cuocoSlotKey("fascia1", i));
+  for(var j=0;j<maxCena;j++) order.push(cuocoSlotKey("fascia2", j));
+  order.push("banco_mattina","sala_mattina","banco_pomeriggio","sala_pomeriggio");
+  if(anyFascia2 || presenti.banco_sera || presenti.sala_sera) order.push("banco_sera","sala_sera");
   return order;
 }
 var SLOT_LABELS = {cuoco:"Cuoco",cuoco_sera:"Cuoco · cena",banco_mattina:"Banco · mattina",sala_mattina:"Sala · mattina",banco_pomeriggio:"Banco · pomeriggio",sala_pomeriggio:"Sala · pomeriggio",banco_sera:"Banco · sera",sala_sera:"Sala · sera"};
@@ -1083,6 +1296,13 @@ var REGOLE_LABELS = {
   giorniConsecutivi: "Giorni consecutivi",
   tettoGiornaliero: "Ore massime al giorno"
 };
+/* Il tetto di ore giornaliere è FACOLTATIVO: 0 (o vuoto) significa "nessun massimo".
+   Ritorna un numero, oppure null quando il limite non è stato impostato. */
+function tettoGiornaliero(settings){
+  var v = Number(settings && settings.oreGiornaliereMax);
+  if(!isFinite(v) || v <= 0) return null;
+  return v;
+}
 function fmtOre(h){
   var m = Math.round(h*60), hh = Math.floor(m/60), mm = m%60;
   if(hh===0) return mm+" min";
@@ -1100,7 +1320,7 @@ function raccogliIntervalli(assign, out){
     Object.keys(g).forEach(function(key){
       var v = g[key];
       if(!v) return;
-      if(key==="cuoco" || key==="cuocoSera"){
+      if(isCampoCuoco(key)){
         if(v.empId && v.inizio && v.fine) (out[v.empId] = out[v.empId]||[]).push({inizio:v.inizio, fine:v.fine, ref:v});
         return;
       }
@@ -1179,11 +1399,13 @@ function violazioniTutela(settings, intervalli, cand, weekStart){
     }
   }
 
-  var maxGiorno = Number(settings.oreGiornaliereMax)||10;
-  var totGiorno = (cand.oreGiorno||0) + (cand.durata||0);
-  if(totGiorno > maxGiorno + 0.001){
-    out.push({regola:"tettoGiornaliero", entita:totGiorno-maxGiorno,
-      testo:"giornata di "+fmtOre(totGiorno)+" oltre il massimo di "+maxGiorno+" ore"});
+  var maxGiorno = tettoGiornaliero(settings);
+  if(maxGiorno !== null){
+    var totGiorno = (cand.oreGiorno||0) + (cand.durata||0);
+    if(totGiorno > maxGiorno + 0.001){
+      out.push({regola:"tettoGiornaliero", entita:totGiorno-maxGiorno,
+        testo:"giornata di "+fmtOre(totGiorno)+" oltre il massimo di "+maxGiorno+" ore"});
+    }
   }
   return out;
 }
@@ -1259,7 +1481,11 @@ function buildTaskQueue(settings, weekStart){
           if(cell.fascia==="fascia2" && !settings.cucinaSegueFasce) return;
           var orari = cucinaOrari(settings, cell.day, cell.fascia);
           if(!orari) return; // fascia non configurata per questo giorno: nessun task, nessun buco segnalato
-          tasks.push({type:"cucina", day:cell.day, fascia:cell.fascia, orari:orari, livelloGap:livello});
+          var quanti = cuochiRichiesti(settings, cell.day, cell.data, cell.fascia);
+          for(var ci=0; ci<quanti; ci++){
+            tasks.push({type:"cucina", day:cell.day, fascia:cell.fascia, orari:orari,
+                        indiceCuoco:ci, livelloGap:livello});
+          }
         } else {
           if(cell.kind!=="foh") return;
           getSlotsForDay(settings, cell.day, cell.data).filter(function(s){ return !s.isCuoco && s.ruolo===dept && s.turno===cell.banda; }).forEach(function(s){
@@ -1317,7 +1543,7 @@ function forEachAssegnazione(wk, fn){
     Object.keys(g).forEach(function(key){
       var v = g[key];
       if(!v) return;
-      if(key==="cuoco" || key==="cuocoSera"){ if(v.empId) fn(v, day, key, 0); return; }
+      if(isCampoCuoco(key)){ if(v.empId) fn(v, day, key, 0); return; }
       if(Array.isArray(v)) v.forEach(function(a, i){ if(a && a.empId) fn(a, day, key, i); });
     });
   });
@@ -1348,11 +1574,22 @@ function quotaGiornaliera(emp){
   if(gg<=0) gg = 5;
   return (Number(emp.oreContratto)||0) / gg;
 }
+/* Il locale è chiuso in questa data? (chiusura di routine, di stagione o straordinaria) */
+function giornoChiuso(settings, dateStr){
+  if(!dateStr) return false;
+  var day = DAYS[(new Date(dateStr+"T00:00:00").getDay()+6)%7];
+  return !!configurazioneDelGiorno(settings, day, dateStr).chiuso;
+}
 function assenzeDellaSettimana(emp, weekStart){
   var giorniInteri = 0, oreRol = 0;
   var assenze = emp.assenze || {};
+  var settings = state && state.settings;
   for(var i=0;i<7;i++){
-    var rec = assenze[addDays(weekStart, i)];
+    var dataGiorno = addDays(weekStart, i);
+    // un giorno di chiusura non toglie ore: il dipendente non avrebbe lavorato comunque,
+    // e scalarlo dall'obiettivo settimanale gli farebbe "perdere" ore che gli spettano
+    if(settings && giornoChiuso(settings, dataGiorno)) continue;
+    var rec = assenze[dataGiorno];
     if(!rec) continue;
     if(rec.tipo==="ferie" || rec.tipo==="malattia") giorniInteri++;
     else if(rec.tipo==="rol") oreRol += Number(rec.ore)||0;
@@ -1513,7 +1750,7 @@ function generateSchedule(weekStart){
     if(task.type==="cucina"){
       var orari = task.orari;
       var turnoKey = task.fascia==="fascia2" ? "sera" : "mattina";
-      var assignField = task.fascia==="fascia2" ? "cuocoSera" : "cuoco";
+      var assignField = cuocoAssignField(task.fascia, task.indiceCuoco||0);
       var inizioIso = isoAt(dataGiorno, orari.inizio);
       var fineCapoIso = isoFine(dataGiorno, orari.inizio, orari.fineCapo);
       var fineRisIso = isoFine(dataGiorno, orari.inizio, orari.fineRiserva);
@@ -1543,8 +1780,9 @@ function generateSchedule(weekStart){
         registraIntervallo(chosen.id, inizioIso, fineIso, rec);
       } else {
         assign[day][assignField] = null;
+        var quale = (task.indiceCuoco||0) > 0 ? (" n."+((task.indiceCuoco||0)+1)) : "";
         gaps.push({day:day, key:assignField, livello:task.livelloGap,
-          msg:(task.fascia==="fascia2"?"Nessun cuoco (cena) disponibile — ":"Nessun cuoco disponibile — ")+DAY_LABELS[day],
+          msg:(task.fascia==="fascia2"?("Nessun cuoco"+quale+" (cena) disponibile — "):("Nessun cuoco"+quale+" disponibile — "))+DAY_LABELS[day],
           perche: diagnosiBuco(function(x){ return x.ruoli.cuoco_capo||x.ruoli.cuoco_riserva; }, turnoKey, day, durCapo)});
       }
     } else {
@@ -1599,7 +1837,13 @@ function generateSchedule(weekStart){
     return null; // banco_mattina è già il turno più presto della giornata: niente da accavallare prima
   }
   var ESTENDIBILI = ["banco_pomeriggio","sala_pomeriggio","banco_sera","sala_sera","sala_mattina"];
-  employees.forEach(function(emp){
+  // l'allungamento anticipa l'ingresso su turni già coperti per avvicinare ciascuno alle
+  // ore di contratto. Fa arrivare più gente alle ore giuste, ma crea sovrapposizioni che
+  // non tutti i locali vogliono: da qui in poi lo decide il titolare (Impostazioni →
+  // "Ore di contratto e allungamento dei turni").
+  var capAllungoMin = Math.max(0, Number(settings.allungaMaxMinuti)||0);
+  var daAllungare = (settings.allungaPerContratto === false) ? [] : employees;
+  daAllungare.forEach(function(emp){
     if(emp.tipoContratto==="chiamata") return;
     // obiettivo già ridotto dalle assenze: chi è stato in ferie o in malattia non deve
     // "recuperare" ore allungando i turni dei giorni in cui c'era
@@ -1635,8 +1879,11 @@ function generateSchedule(weekStart){
       if(maxBackMin<=0) return;
       var neededMin = Math.round(deficit*60);
       // non superare mai il massimo di ore giornaliere (default 10h) per questa persona in questo giorno
-      var dailyRemainMin = Math.round(((Number(settings.oreGiornaliereMax)||10) - dayHours(emp.id, ref.day)) * 60);
-      var applyMin = Math.min(maxBackMin, neededMin, Math.max(0,dailyRemainMin));
+      var tetto = tettoGiornaliero(settings);
+      var dailyRemainMin = tetto===null ? Infinity : Math.round((tetto - dayHours(emp.id, ref.day)) * 60);
+      // limite scelto dal titolare su quanto si può anticipare un singolo turno
+      var capMin = capAllungoMin > 0 ? capAllungoMin : Infinity;
+      var applyMin = Math.min(maxBackMin, neededMin, capMin, Math.max(0,dailyRemainMin));
       applyMin = Math.floor(applyMin/15)*15; // arrotonda a quarti d'ora
       if(applyMin<=0) return;
       ref.entry.inizio = addMinIso(current, -applyMin);
@@ -1748,11 +1995,14 @@ function renderTabellaOrariStagione(orari, i){
       return '<input type="time" style="width:106px;border:1px solid var(--border);background:var(--bg);color:var(--ink);border-radius:8px;padding:7px 8px;font-size:.86rem;" '+
         'data-stagione-orario="'+i+'|'+day+'|'+fascia+'|'+nome+'" value="'+escapeHtml(valore)+'">';
     };
-    return '<div style="display:flex;gap:10px;align-items:center;padding:7px 0;border-top:1px solid var(--border);flex-wrap:wrap;">'+
+    return '<div style="display:flex;gap:10px;align-items:center;padding:7px 0;border-top:1px solid var(--border);flex-wrap:wrap;'+(og.chiuso?'opacity:.6;':'')+'">'+
       '<div style="min-width:86px;font-weight:700;font-size:.84rem;">'+DAY_LABELS[day]+'</div>'+
-      campo("fascia1","inizio",f1.inizio)+campo("fascia1","puntoMedio",f1.puntoMedio)+campo("fascia1","fine",f1.fine)+
-      '<label class="check" style="margin-left:4px;"><input type="checkbox" data-stagione-fascia2="'+i+'|'+day+'" '+(f2?"checked":"")+'> sì</label>'+
-      (f2 ? campo("fascia2","inizio",f2.inizio)+campo("fascia2","fine",f2.fine) : '')+
+      (og.chiuso
+        ? '<div style="flex:1;min-width:200px;font-size:.82rem;color:var(--ink-muted);">Chiuso in questa stagione</div>'
+        : campo("fascia1","inizio",f1.inizio)+campo("fascia1","puntoMedio",f1.puntoMedio)+campo("fascia1","fine",f1.fine)+
+          '<label class="check" style="margin-left:4px;"><input type="checkbox" data-stagione-fascia2="'+i+'|'+day+'" '+(f2?"checked":"")+'> sì</label>'+
+          (f2 ? campo("fascia2","inizio",f2.inizio)+campo("fascia2","fine",f2.fine) : ''))+
+      '<label class="check" style="margin-left:auto;"><input type="checkbox" data-stagione-chiuso="'+i+'|'+day+'" '+(og.chiuso?"checked":"")+'> chiuso</label>'+
     '</div>';
   }).join("");
   return '<div style="margin-top:12px;">'+testa+righe+'</div>';
@@ -1809,10 +2059,12 @@ function renderDeroghe(s){
           '<label class="field">Cambio turno<input type="time" data-deroga-orario="'+data+'|fascia1|puntoMedio" value="'+o.fascia1.puntoMedio+'"></label>'+
           '<label class="field">Chiusura<input type="time" data-deroga-orario="'+data+'|fascia1|fine" value="'+o.fascia1.fine+'"></label>'+
         '</div>'+
-        '<div class="grid cols-2" style="margin-top:10px;">'+
-          '<label class="field">Persone in sala<input type="number" min="0" data-deroga-staff="'+data+'|sala" value="'+((d.staff&&d.staff.sala!=null)?d.staff.sala:s.salaNormale)+'"></label>'+
-          '<label class="field">Persone al banco<input type="number" min="0" data-deroga-staff="'+data+'|banco" value="'+((d.staff&&d.staff.banco!=null)?d.staff.banco:s.bancoNormale)+'"></label>'+
-        '</div>')+
+        '<div class="grid cols-3" style="margin-top:10px;">'+
+          '<label class="field">Cuochi<input type="number" min="0" max="20" data-deroga-staff="'+data+'|cucina" value="'+((d.staff&&d.staff.cucina!=null)?d.staff.cucina:base.organico.mattina.cucina)+'"></label>'+
+          '<label class="field">Persone al banco<input type="number" min="0" max="20" data-deroga-staff="'+data+'|banco" value="'+((d.staff&&d.staff.banco!=null)?d.staff.banco:base.organico.mattina.banco)+'"></label>'+
+          '<label class="field">Persone in sala<input type="number" min="0" max="20" data-deroga-staff="'+data+'|sala" value="'+((d.staff&&d.staff.sala!=null)?d.staff.sala:base.organico.mattina.sala)+'"></label>'+
+        '</div>'+
+        '<div class="card-desc" style="margin:8px 0 0;">Questi numeri valgono per tutte le fasce della giornata e battono la tabella “Organico ideale”.</div>')+
       '<div class="btn-row" style="margin-top:10px;">'+
         '<button class="btn btn-sm btn-danger" data-deroga-elimina="'+data+'">Rimuovi</button>'+
         (passata?'<span class="pill" style="background:var(--surface-2);color:var(--ink-muted);">data passata</span>':'')+
@@ -1977,7 +2229,7 @@ function validaImpostazioni(s){
   };
   DAYS.forEach(function(day){
     var og = s.orariGiorni[day];
-    if(!og || !og.fascia1) return;
+    if(!og || !og.fascia1 || og.chiuso) return;   // un giorno chiuso non ha orari da controllare
     var f1 = og.fascia1, etichetta = DAY_LABELS[day];
     var dur1 = durataFascia(f1.inizio, f1.fine);
     if(dur1 < 0.5 || dur1 > 16){
@@ -2014,7 +2266,7 @@ function validaImpostazioni(s){
   // banco e cameriere non possono iniziare dopo il cambio turno
   DAYS.forEach(function(day){
     var og = s.orariGiorni[day];
-    if(!og || !og.fascia1) return;
+    if(!og || !og.fascia1 || og.chiuso) return;
     if(timeToMin(s.bancoInizio) >= timeToMin(og.fascia1.puntoMedio)){
       out.push({livello:"avviso", testo:DAY_LABELS[day]+": il banco entra alle "+s.bancoInizio+", cioè dopo il cambio turno: il turno di mattina risulterebbe vuoto."});
     }
@@ -2039,11 +2291,40 @@ function validaImpostazioni(s){
       if(d > piuLungo){ piuLungo = d; doveLungo = DAY_LABELS[day]+" · "+slot.label.toLowerCase(); }
     });
   });
-  if(piuLungo > (Number(s.oreGiornaliereMax)||10) + 0.001){
-    out.push({livello:"avviso", testo:"Il turno più lungo previsto ("+doveLungo+", "+fmtOre(piuLungo)+") supera il massimo di ore giornaliere ("+s.oreGiornaliereMax+" h): verrà segnalato come irregolare tutti i giorni."});
+  var tettoValid = tettoGiornaliero(s);
+  if(tettoValid !== null && piuLungo > tettoValid + 0.001){
+    out.push({livello:"avviso", testo:"Il turno più lungo previsto ("+doveLungo+", "+fmtOre(piuLungo)+") supera il massimo di ore giornaliere ("+tettoValid+" h): verrà segnalato come irregolare tutti i giorni."});
   }
-  if((Number(s.salaNormale)||0)===0 && (Number(s.bancoNormale)||0)===0){
-    out.push({livello:"avviso", testo:"Sala e banco sono entrambi a zero persone: la generazione produrrà solo turni di cucina."});
+
+  // organico: un reparto a zero su tutta la settimana quasi sempre è una dimenticanza
+  var apertiOra = DAYS.filter(function(d){ return !(s.orariGiorni[d] && s.orariGiorni[d].chiuso); });
+  if(!apertiOra.length){
+    out.push({livello:"avviso", testo:"Tutti i giorni della settimana sono segnati come chiusi: non verrà generato nessun turno."});
+  } else {
+    // conta solo le caselle che il motore legge davvero: la cucina del pomeriggio non
+    // esiste come turno, e la cucina della sera vale solo dove è configurata
+    var effettivo = function(d, rep){
+      var org = s.organico[d];
+      if(rep!=="cucina") return (Number(org.mattina[rep])||0)+(Number(org.pomeriggio[rep])||0)+(Number(org.sera[rep])||0);
+      var tot = Number(org.mattina.cucina)||0;
+      if(s.cucinaSegueFasce && s.orariGiorni[d].fascia2 && s.orariCucina[d] && s.orariCucina[d].fascia2){
+        tot += Number(org.sera.cucina)||0;
+      }
+      return tot;
+    };
+    REPARTI.forEach(function(rep){
+      var totale = 0;
+      apertiOra.forEach(function(d){ totale += effettivo(d, rep); });
+      if(totale === 0){
+        var etich = {cucina:"cucina", banco:"banco", sala:"sala"}[rep];
+        out.push({livello:"avviso", testo:"In “Organico ideale” il reparto "+etich+" è a zero in tutti i giorni aperti: non verrà creato nessun turno di "+etich+"."});
+      }
+    });
+    // un giorno aperto con organico completamente vuoto non produce nulla
+    apertiOra.forEach(function(d){
+      var somma = REPARTI.reduce(function(acc, r){ return acc + effettivo(d, r); }, 0);
+      if(somma===0) out.push({livello:"avviso", testo:DAY_LABELS[d]+": il locale risulta aperto ma l’organico ideale è tutto a zero, quindi non verrà generato nessun turno. Se il giorno è di chiusura, segnalo in “Orari di apertura al pubblico”."});
+    });
   }
 
   // le stagioni hanno orari propri: vanno controllate come quelli standard, altrimenti
@@ -2059,7 +2340,7 @@ function validaImpostazioni(s){
     if(!st.orariGiorni) return;
     DAYS.forEach(function(day){
       var og = st.orariGiorni[day];
-      if(!og || !og.fascia1) return;
+      if(!og || !og.fascia1 || og.chiuso) return;
       var f1 = og.fascia1, dove = "Stagione “"+nome+"”, "+DAY_LABELS[day];
       if(!f1.inizio || !f1.fine || !f1.puntoMedio){
         out.push({livello:"errore", testo:dove+": manca un orario. Compila apertura, cambio turno e chiusura."});
@@ -2086,6 +2367,7 @@ function validaImpostazioni(s){
   // un buco da risolvere: il turno esce con sala e banco e senza nessuno ai fornelli
   if(s.cucinaSegueFasce){
     DAYS.forEach(function(day){
+      if(s.orariGiorni[day] && s.orariGiorni[day].chiuso) return;
       var seraStandard = !!(s.orariGiorni[day] && s.orariGiorni[day].fascia2);
       var stagioniSera = (s.stagioni||[]).filter(function(st){
         return st && st.attiva!==false && st.orariGiorni && st.orariGiorni[day] && st.orariGiorni[day].fascia2;
@@ -2174,8 +2456,13 @@ function renderOrariGiorniEditor(s){
     var hasF2 = !!og.fascia2;
     var f2 = og.fascia2 || {inizio:"19:00", fine:"23:00"};
     return '<div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;">'+
-      '<div style="font-weight:700;margin-bottom:8px;">'+DAY_LABELS[day]+'</div>'+
-      '<div class="grid cols-3">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px;">'+
+        '<div style="font-weight:700;">'+DAY_LABELS[day]+(og.chiuso?' <span class="pill pill-danger" style="margin-left:6px;">chiuso</span>':'')+'</div>'+
+        '<label class="check"><input type="checkbox" data-giorno-chiuso="'+day+'" '+(og.chiuso?"checked":"")+'> Chiuso tutto il giorno</label>'+
+      '</div>'+
+      (og.chiuso
+        ? '<div class="card-desc" style="margin:0;">Chiusura di routine: ogni settimana questo giorno non genera nessun turno. Gli orari restano salvati e tornano appena togli la spunta. Per aprire eccezionalmente una singola data, usa il “Calendario delle chiusure”.</div>'
+        : '<div class="grid cols-3">'+
         '<label class="field">Apertura<input type="time" data-orario-giorno="'+day+'|fascia1|inizio" value="'+escapeHtml(f1.inizio)+'"></label>'+
         '<label class="field">Cambio turno (punto medio)<input type="time" data-orario-giorno="'+day+'|fascia1|puntoMedio" value="'+escapeHtml(f1.puntoMedio)+'"></label>'+
         '<label class="field">Chiusura<input type="time" data-orario-giorno="'+day+'|fascia1|fine" value="'+escapeHtml(f1.fine)+'"></label>'+
@@ -2184,7 +2471,7 @@ function renderOrariGiorniEditor(s){
       (hasF2 ? '<div class="grid cols-2" style="margin-top:8px;">'+
         '<label class="field">Apertura serale<input type="time" data-orario-giorno="'+day+'|fascia2|inizio" value="'+escapeHtml(f2.inizio)+'"></label>'+
         '<label class="field">Chiusura serale<input type="time" data-orario-giorno="'+day+'|fascia2|fine" value="'+escapeHtml(f2.fine)+'"></label>'+
-      '</div>' : '')+
+      '</div>' : ''))+
     '</div>';
   }).join("");
 }
@@ -2221,10 +2508,190 @@ function renderCucinaOrariEditor(s){
   }).join("");
 }
 
+/* ---------- navigazione delle impostazioni ----------
+   Le impostazioni sono tante e crescono: raggrupparle per argomento evita di far
+   scorrere tre schermate per cambiare un orario. La sezione scelta resta quella
+   finché non si cambia, anche dopo un salvataggio. */
+var IMP_SEZIONI = [
+  {id:"tutte",      label:"Tutte le impostazioni"},
+  {id:"personale",  label:"Personale, regole e priorità"},
+  {id:"orari",      label:"Orari, organico e cucina"},
+  {id:"calendario", label:"Stagioni, chiusure e giorni speciali"},
+  {id:"azienda",    label:"Azienda, backup e ripristino"}
+];
+var impSezione = "personale";
+function inSezione(id){ return impSezione==="tutte" || impSezione===id; }
+
+/* Organico ideale: quante persone per reparto, giorno e fascia. È la tabella che
+   comanda davvero la generazione. */
+function renderOrganico(s){
+  var righe = DAYS.map(function(day){
+    var og = s.orariGiorni[day] || {};
+    var chiuso = !!og.chiuso;
+    var haSera = !!og.fascia2 || (s.stagioni||[]).some(function(st){
+      return st && st.attiva!==false && st.orariGiorni && st.orariGiorni[day] && st.orariGiorni[day].fascia2;
+    });
+    var cucinaSera = haSera && s.cucinaSegueFasce;
+    var celle = BANDE.map(function(banda){
+      var org = (s.organico[day] && s.organico[day][banda]) || {cucina:0,banco:0,sala:0};
+      var inattiva = (banda==="sera" && !haSera);
+      var campo = function(reparto, disabilitato, titolo){
+        return '<input type="number" min="0" max="20" data-organico="'+day+'|'+banda+'|'+reparto+'" '+
+          'value="'+(Number(org[reparto])||0)+'"'+(disabilitato?' disabled title="'+titolo+'"':'')+
+          ' style="width:64px;border:1px solid var(--border);background:var(--bg);color:var(--ink);border-radius:8px;padding:6px 8px;font-size:.86rem;text-align:center;'+(disabilitato?'opacity:.45;':'')+'">';
+      };
+      // la cucina ha al massimo due servizi: il pranzo e la cena. Il pomeriggio non ha
+      // un turno di cucina proprio, quindi quella casella non avrebbe alcun effetto.
+      var cucinaSpenta = (banda==="pomeriggio") || (banda==="sera" && !cucinaSera);
+      var titoloCucina = banda==="pomeriggio"
+        ? "La cucina del pomeriggio fa parte del turno di pranzo"
+        : "Per avere un cuoco la sera attiva “la cucina segue le fasce” e la seconda apertura";
+      return '<div style="display:flex;gap:10px;align-items:center;padding:5px 0;'+(inattiva?'opacity:.6;':'')+'">'+
+        '<div style="min-width:104px;font-size:.82rem;font-weight:600;color:var(--ink-muted);">'+BANDA_LABELS[banda]+'</div>'+
+        campo("cucina", cucinaSpenta, titoloCucina)+campo("banco", false, "")+campo("sala", false, "")+
+        (inattiva?'<span class="hint" style="font-size:.7rem;">nessuna apertura serale</span>':'')+
+      '</div>';
+    }).join("");
+    return '<div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;'+(chiuso?'opacity:.55;':'')+'">'+
+      '<div style="font-weight:700;margin-bottom:6px;">'+DAY_LABELS[day]+
+        (chiuso?' <span class="pill pill-danger" style="margin-left:6px;">chiuso</span>':'')+'</div>'+
+      '<div style="display:flex;gap:10px;align-items:center;font-size:.7rem;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;">'+
+        '<div style="min-width:104px;"></div><div style="width:64px;text-align:center;">Cucina</div>'+
+        '<div style="width:64px;text-align:center;">Banco</div><div style="width:64px;text-align:center;">Sala</div>'+
+      '</div>'+celle+
+    '</div>';
+  }).join("");
+  return '<div class="btn-row" style="margin-bottom:10px;">'+
+      '<button class="btn btn-sm" id="btn-organico-copia-lunedi">Copia il lunedì su tutti gli altri giorni</button>'+
+    '</div>'+righe;
+}
+
+/* Calendario delle chiusure: un mese alla volta, si clicca il giorno da chiudere. */
+function haTurniIl(dateStr){
+  var wk = state.weeks[mondayOf(dateStr)];
+  if(!wk || !wk.assign) return false;
+  var day = DAYS[(new Date(dateStr+"T00:00:00").getDay()+6)%7];
+  var g = wk.assign[day];
+  if(!g) return false;
+  return Object.keys(g).some(function(k){
+    var v = g[k];
+    if(!v) return false;
+    if(isCampoCuoco(k)) return !!v.empId;
+    return Array.isArray(v) && v.some(function(a){ return a && a.empId; });
+  });
+}
+function renderCalendarioChiusure(s){
+  var mese = currentChiusureMonth;                       // "YYYY-MM"
+  var anno = Number(mese.slice(0,4)), m = Number(mese.slice(5,7));
+  var primo = new Date(anno, m-1, 1);
+  var etichetta = capitalize(primo.toLocaleDateString("it-IT",{month:"long",year:"numeric"}));
+  var offset = (primo.getDay()+6)%7;                      // lunedì = 0
+  var giorniNelMese = new Date(anno, m, 0).getDate();
+  var oggi = isoDate(new Date());
+
+  var celle = "";
+  for(var v=0; v<offset; v++) celle += '<div class="cal-cell cal-vuota"></div>';
+  for(var g=1; g<=giorniNelMese; g++){
+    var data = anno+"-"+("0"+m).slice(-2)+"-"+("0"+g).slice(-2);
+    var day = DAYS[(new Date(data+"T00:00:00").getDay()+6)%7];
+    var cfg = configurazioneDelGiorno(s, day, data);
+    var der = (s.deroghe||{})[data];
+    var cls = "cal-cell";
+    var nota = "";
+    if(cfg.chiuso && cfg.chiusuraStraordinaria){ cls += " cal-chiuso-extra"; nota = der && der.nome ? der.nome : "chiuso"; }
+    else if(cfg.chiuso){ cls += " cal-chiuso-routine"; nota = "chiuso di routine"; }
+    else if(der && der.aperto){ cls += " cal-aperto-extra"; nota = "aperto in deroga"; }
+    else if(der){ cls += " cal-speciale"; nota = der.nome || "giorno speciale"; }
+    if(data < oggi) cls += " cal-passata";
+    if(data === oggi) cls += " cal-oggi";
+    celle += '<button class="'+cls+'" data-chiusura-giorno="'+data+'" type="button" title="'+escapeHtml(nota||fmtDateLabel(data))+'">'+
+      '<span class="cal-num">'+g+'</span>'+
+      (nota?'<span class="cal-nota">'+escapeHtml(nota)+'</span>':'')+
+    '</button>';
+  }
+
+  var intestazione = ["Lun","Mar","Mer","Gio","Ven","Sab","Dom"].map(function(d){
+    return '<div class="cal-dow">'+d+'</div>';
+  }).join("");
+
+  return '<div class="btn-row" style="margin-bottom:12px;">'+
+      '<button class="btn btn-sm" id="chiusure-mese-prev">← Mese prec.</button>'+
+      '<input type="month" id="chiusure-mese-pick" value="'+mese+'">'+
+      '<button class="btn btn-sm" id="chiusure-mese-next">Mese succ. →</button>'+
+      '<div style="flex:1;"></div>'+
+      '<span style="font-weight:700;">'+etichetta+'</span>'+
+    '</div>'+
+    '<div class="cal-grid">'+intestazione+celle+'</div>'+
+    '<div class="cal-legenda">'+
+      '<span><i class="cal-box cal-chiuso-routine"></i> chiusura di routine (dagli orari settimanali)</span>'+
+      '<span><i class="cal-box cal-chiuso-extra"></i> chiusura straordinaria</span>'+
+      '<span><i class="cal-box cal-aperto-extra"></i> aperto in deroga</span>'+
+      '<span><i class="cal-box cal-speciale"></i> giorno speciale</span>'+
+    '</div>';
+}
+
+function spostaMese(mese, delta){
+  var anno = Number(mese.slice(0,4)), m = Number(mese.slice(5,7)) + delta;
+  var d = new Date(anno, m-1, 1);
+  return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2);
+}
+/* Un clic sul calendario: chiude una data aperta, riapre una data chiusa a mano, e
+   su un giorno di chiusura di routine propone l'apertura eccezionale. Non cancella
+   mai da sola i turni già assegnati: lo dice e lascia decidere. */
+function commutaChiusura(dateStr){
+  if(soloLettura()) return;
+  var s = state.settings;
+  var day = DAYS[(new Date(dateStr+"T00:00:00").getDay()+6)%7];
+  var der = (s.deroghe||{})[dateStr];
+  var cfgBase = configurazioneDelGiorno(s, day, dateStr);
+  var etichetta = fmtDateLabel(dateStr)+" "+dateStr.slice(0,4);
+
+  // 1) c'è un'apertura eccezionale in corso → si annulla, qualunque sia il motivo della
+  //    chiusura sottostante (settimanale o di stagione)
+  if(der && der.aperto){
+    delete der.aperto;
+    if(!der.nome || der.nome==="Apertura straordinaria"){
+      if(!der.orari && !der.staff && !der.priorita && !der.chiuso){ delete s.deroghe[dateStr]; saveState(); render(); return; }
+      delete der.nome;
+    }
+    saveState(); render();
+    return;
+  }
+  // 2) è già una chiusura straordinaria → si riapre
+  if(der && der.chiuso){
+    der.chiuso = false;
+    if(!der.nome && !der.orari && !der.staff && !der.priorita) delete s.deroghe[dateStr];
+    saveState(); render();
+    return;
+  }
+  // 3) è un giorno di chiusura di routine (settimanale o di stagione) → apertura eccezionale
+  var routine = cfgBase.chiusuraRoutine || !!(s.orariGiorni[day] && s.orariGiorni[day].chiuso);
+  if(routine){
+    if(!confirm("Il "+etichetta+" è un giorno di chiusura di routine.\n\nVuoi aprire eccezionalmente questa data?")) return;
+    s.deroghe[dateStr] = s.deroghe[dateStr] || {nome:"Apertura straordinaria", chiuso:false};
+    s.deroghe[dateStr].aperto = true;
+    s.deroghe[dateStr].chiuso = false;
+    saveState(); render();
+    return;
+  }
+  // 4) giorno aperto → si chiude, avvisando se ci sono già turni assegnati
+  var avviso = "Chiudere il locale il "+etichetta+"?";
+  if(haTurniIl(dateStr)){
+    avviso += "\n\nATTENZIONE: per questa data ci sono già turni assegnati. La chiusura NON li cancella:"+
+      " restano dove sono finché non rigeneri la settimana. Sulla scheda Turni la giornata verrà marcata come chiusa.";
+  }
+  if(!confirm(avviso)) return;
+  s.deroghe[dateStr] = s.deroghe[dateStr] || {nome:"Chiusura straordinaria"};
+  if(!s.deroghe[dateStr].nome) s.deroghe[dateStr].nome = "Chiusura straordinaria";
+  s.deroghe[dateStr].chiuso = true;
+  delete s.deroghe[dateStr].aperto;
+  saveState(); render();
+}
+
 function renderImpostazioni(){
   var s = state.settings;
-  function num(field,label,suffix){
-    return '<label class="field">'+label+'<input type="number" min="0" data-setting="'+field+'" value="'+s[field]+'"></label>';
+  function num(field,label,extra){
+    return '<label class="field">'+label+'<input type="number" min="0" data-setting="'+field+'" value="'+s[field]+'"'+(extra||"")+'></label>';
   }
   function time(field,label){
     return '<label class="field">'+label+'<input type="time" data-setting="'+field+'" value="'+s[field]+'"></label>';
@@ -2239,115 +2706,166 @@ function renderImpostazioni(){
     return '<label class="field">Priorità '+(i+1)+'ª<select data-ordine-priorita="'+i+'">'+opts+'</select></label>';
   }).join("");
 
-  return ''+
-  renderValidazione(s)+
-  '<div class="card" style="border-color:var(--accent);"><h2>Priorità quando il personale non basta</h2>'+
-    '<div class="card-desc">Quando non c’è abbastanza personale per coprire tutti i turni, decidi tu quale reparto proteggere per primo tra cucina, banco e sala, e per ogni giorno e ogni fascia (mattina, pomeriggio e sera) quanto quella fascia va difesa: <strong>alta</strong> = coperta per prima, <strong>media</strong> = subito dopo, <strong>bassa</strong> = il resto, coperto per ultimo.</div>'+
+  var tetto = tettoGiornaliero(s);
+  var nav = '<div class="imp-nav no-print">'+
+    '<label class="field" style="max-width:420px;">Vai a<select id="imp-sezione">'+
+      IMP_SEZIONI.map(function(x){ return '<option value="'+x.id+'"'+(impSezione===x.id?" selected":"")+'>'+x.label+'</option>'; }).join("")+
+    '</select></label></div>';
 
-    '<div class="card-desc" style="margin-bottom:6px;">Le tue configurazioni: puoi salvare più impostazioni complete di priorità (per esempio “Estate”, “Inverno”, “Settimana della sagra”) e richiamarle quando servono. Applicarne una sovrascrive ordine dei reparti e priorità di giorno/fascia; resta comunque tutto modificabile dopo.</div>'+
-    renderConfigurazioniPriorita(s)+
+  var html = renderValidazione(s) + nav;
 
-    '<div class="card-desc" style="margin-top:20px;margin-bottom:6px;">Ordine dei reparti da proteggere per primi:</div>'+
-    '<div class="grid cols-3">'+ordineSelects+'</div>'+
-
-    '<div class="card-desc" style="margin-top:16px;margin-bottom:6px;">Livello di priorità per ogni giorno e fascia oraria. La fascia “Sera” si imposta sempre, anche sui giorni che oggi non hanno una seconda apertura: se e quando l’aggiungerai (vedi “Orari di apertura al pubblico”), la priorità sarà già quella giusta.</div>'+
-    renderPrioritaFasceGrid(s)+
-  '</div>'+
-
-  '<div class="card"><h2>Ore massime al giorno</h2><div class="card-desc">Limite di ore in una singola giornata. Non blocca la copertura: se l’unica persona disponibile lo supera, il turno viene assegnato lo stesso e segnalato come irregolare (vedi “Regole di tutela”). Resta invece un limite invalicabile quando si allunga un turno per raggiungere le ore di contratto.</div>'+
-    '<div class="grid cols-2">'+
-      num("oreGiornaliereMax","Ore massime al giorno (con straordinario)")+
-    '</div></div>'+
-
-  '<div class="card"><h2>Pareggiamento straordinari</h2><div class="card-desc">Il programma ricorda quante ore di straordinario ha fatto ciascun dipendente nelle settimane passate. Quando è attivo, a parità di preferenze e disponibilità il generatore preferisce dare eventuali nuove ore di straordinario a chi ne ha accumulate di meno nella finestra scelta qui sotto (media mobile) — resta comunque una preferenza: se serve a garantire la copertura, lo straordinario viene assegnato comunque a chi è disponibile.</div>'+
-    '<label class="check"><input type="checkbox" data-setting-bool="paritaStraordinariEnabled" '+(s.paritaStraordinariEnabled?"checked":"")+'> Prova a pareggiare gli straordinari tra i dipendenti</label>'+
-    '<div class="grid cols-2" style="margin-top:12px;">'+
-      num("paritaStraordinariFinestra","Finestra di calcolo (numero di settimane precedenti)")+
+  /* ===== Personale, regole e priorità ===== */
+  if(inSezione("personale")){
+    html +=
+    '<div class="card" style="border-color:var(--accent);"><h2>Priorità quando il personale non basta</h2>'+
+      '<div class="card-desc">Quando non c’è abbastanza personale per coprire tutti i turni, decidi tu quale reparto proteggere per primo tra cucina, banco e sala, e per ogni giorno e ogni fascia (mattina, pomeriggio e sera) quanto quella fascia va difesa: <strong>alta</strong> = coperta per prima, <strong>media</strong> = subito dopo, <strong>bassa</strong> = il resto, coperto per ultimo.</div>'+
+      '<div class="card-desc" style="margin-bottom:6px;">Le tue configurazioni: puoi salvare più impostazioni complete di priorità (per esempio “Estate”, “Inverno”, “Settimana della sagra”) e richiamarle quando servono. Applicarne una sovrascrive ordine dei reparti e priorità di giorno/fascia; resta comunque tutto modificabile dopo.</div>'+
+      renderConfigurazioniPriorita(s)+
+      '<div class="card-desc" style="margin-top:20px;margin-bottom:6px;">Ordine dei reparti da proteggere per primi:</div>'+
+      '<div class="grid cols-3">'+ordineSelects+'</div>'+
+      '<div class="card-desc" style="margin-top:16px;margin-bottom:6px;">Livello di priorità per ogni giorno e fascia oraria. La fascia “Sera” si imposta sempre, anche sui giorni che oggi non hanno una seconda apertura: se e quando l’aggiungerai (vedi “Orari di apertura al pubblico”), la priorità sarà già quella giusta.</div>'+
+      renderPrioritaFasceGrid(s)+
     '</div>'+
-  '</div>'+
 
-  '<div class="card"><h2>Stagioni</h2><div class="card-desc">Un intervallo di date che ogni anno sostituisce gli orari standard: sul lago l’estate e l’inverno non sono lo stesso locale. Si scrive giorno e mese (per esempio <span class="mono">06-01</span> → <span class="mono">09-15</span>); un intervallo può anche scavalcare il capodanno. Vale per tutti gli anni, non va rifatto ogni stagione.</div>'+
-    renderStagioni(s)+
-  '</div>'+
-
-  '<div class="card"><h2>Regole di tutela del personale</h2><div class="card-desc">Il programma le calcola e le segnala, ma <strong>non blocca mai la copertura di un turno</strong>: se l’unica persona disponibile infrange una di queste regole, il turno viene comunque assegnato e marcato come irregolare, così puoi decidere tu se accettarlo, spostare qualcuno o chiedere più disponibilità. I valori di default seguono la normativa italiana sull’orario di lavoro.</div>'+
-    '<label class="check"><input type="checkbox" data-regola-attiva="riposoGiornaliero" '+(s.regoleTutela.riposoGiornaliero.attiva?"checked":"")+'> Riposo minimo tra la fine di un turno e l’inizio del successivo</label>'+
-    '<div class="grid cols-2" style="margin:8px 0 16px;"><label class="field">Ore di riposo<input type="number" min="0" max="24" data-regola-valore="riposoGiornaliero|ore" value="'+s.regoleTutela.riposoGiornaliero.ore+'"></label></div>'+
-    '<label class="check"><input type="checkbox" data-regola-attiva="riposoSettimanale" '+(s.regoleTutela.riposoSettimanale.attiva?"checked":"")+'> Riposo settimanale continuativo</label>'+
-    '<div class="grid cols-2" style="margin:8px 0 16px;"><label class="field">Ore consecutive di riposo ogni settimana<input type="number" min="0" max="72" data-regola-valore="riposoSettimanale|ore" value="'+s.regoleTutela.riposoSettimanale.ore+'"></label></div>'+
-    '<label class="check"><input type="checkbox" data-regola-attiva="giorniConsecutivi" '+(s.regoleTutela.giorniConsecutivi.attiva?"checked":"")+'> Numero massimo di giorni lavorati di fila</label>'+
-    '<div class="grid cols-2" style="margin:8px 0 0;"><label class="field">Giorni consecutivi<input type="number" min="1" max="14" data-regola-valore="giorniConsecutivi|max" value="'+s.regoleTutela.giorniConsecutivi.max+'"></label></div>'+
-    '<div class="card-desc" style="margin:16px 0 0;">Il limite di ore giornaliere impostato sopra viene trattato allo stesso modo: superato, il turno resta assegnato ma segnalato.</div>'+
-  '</div>'+
-
-  '<div class="card"><h2>Orari di apertura al pubblico</h2><div class="card-desc">Orari di sala/banco per ogni giorno della settimana. Puoi configurare fino a 2 aperture al giorno (es. lun 8–16 e 19–23) per gestire i turni spezzati. La cucina ha orari propri nella card “Cucina” qui sotto.</div>'+
-    '<div class="btn-row" style="margin-bottom:10px;"><button class="btn btn-sm" id="btn-copia-orari-lunedi">Copia il lunedì su tutti gli altri giorni</button></div>'+
-    renderOrariGiorniEditor(s)+
-  '</div>'+
-
-  '<div class="card"><h2>Cucina</h2><div class="card-desc">Un solo cuoco per turno: il capo e la riserva si alternano (la riserva copre soprattutto i giorni liberi del capo). La cucina chiude circa mezz’ora prima della fine turno del cuoco.</div>'+
-    '<label class="check"><input type="checkbox" data-setting-bool="cucinaSegueFasce" '+(s.cucinaSegueFasce?"checked":"")+'> La cucina segue le fasce orarie del locale (turno pranzo e turno cena separati, con cuoco eventualmente diverso)</label>'+
-    (s.cucinaSegueFasce ? (
-      '<div class="grid cols-1" style="margin-top:14px;max-width:320px;">'+
-        num("minutiCucinaPrimaFineTurno","Minuti di anticipo chiusura cucina")+
+    '<div class="card"><h2>Ore massime al giorno</h2>'+
+      '<div class="card-desc">Limite di ore in una singola giornata. Non blocca la copertura: se l’unica persona disponibile lo supera, il turno viene assegnato lo stesso e segnalato come irregolare (vedi “Regole di tutela”). Resta invece un limite invalicabile quando si allunga un turno per raggiungere le ore di contratto.</div>'+
+      '<div class="card-desc"><strong>Lascia 0 (o vuoto) se non vuoi nessun limite:</strong> in quel caso il programma non pone un massimo di ore giornaliere per nessun dipendente e non segnala niente per questo motivo. Restano attive le altre regole di tutela e il monte ore settimanale di ciascun contratto.</div>'+
+      '<div class="grid cols-2">'+
+        num("oreGiornaliereMax","Ore massime al giorno (0 = nessun limite)")+
       '</div>'+
-      '<div style="margin-top:14px;">'+renderCucinaOrariEditor(s)+'</div>'
-    ) : (
-      '<div class="grid cols-4" style="margin-top:14px;">'+
-        time("cuocoInizio","Cuoco in servizio dalle")+
-        time("fineTurnoCuocoCapo","Fine turno cuoco capo")+
-        time("fineTurnoCuocoRiserva","Fine turno cuoco riserva")+
-        num("minutiCucinaPrimaFineTurno","Minuti di anticipo chiusura cucina")+
+      '<div class="card-desc" style="margin:12px 0 0;">'+(tetto===null
+        ? '<span class="pill pill-warning">nessun limite attivo</span> Nessun massimo giornaliero: nessun turno verrà segnalato per le ore fatte in una singola giornata.'
+        : '<span class="pill pill-success">limite attivo</span> Oltre <strong>'+tetto+' ore</strong> in un giorno il turno resta assegnato ma viene segnalato come irregolare.')+'</div>'+
+    '</div>'+
+
+    '<div class="card"><h2>Ore di contratto e allungamento dei turni</h2>'+
+      '<div class="card-desc">Quando qualcuno resta sotto le proprie ore di contratto, il programma può <strong>anticipare l’ingresso</strong> su turni che quella persona ha già, fino ad avvicinarla alle ore dovute. Il risultato è che due persone si sovrappongono per un pezzo di turno: per certi locali è normale (si dà il cambio, si prepara la sala), per altri è personale in più che non serve.</div>'+
+      '<label class="check"><input type="checkbox" data-setting-bool="allungaPerContratto" '+(s.allungaPerContratto!==false?"checked":"")+'> Allunga i turni per avvicinare ciascuno alle ore di contratto</label>'+
+      '<div class="grid cols-2" style="margin-top:14px;">'+
+        num("allungaMaxMinuti","Anticipo massimo per singolo turno, in minuti (0 = nessun limite)")+
       '</div>'+
-      '<div class="card-desc" style="margin-top:10px;margin-bottom:0;">Con questi valori la cucina chiude alle <strong class="mono">'+addMin(s.fineTurnoCuocoCapo,-s.minutiCucinaPrimaFineTurno)+'</strong> quando è di turno il capo, e alle <strong class="mono">'+addMin(s.fineTurnoCuocoRiserva,-s.minutiCucinaPrimaFineTurno)+'</strong> quando è di turno la riserva.</div>'
-    ))+
-  '</div>'+
-
-  '<div class="card"><h2>Banco e sala</h2><div class="card-desc">Il banco è presente prima dell’apertura per preparare sala e cucina; il/la cameriere/a arriva più tardi. Il cambio turno e la chiusura si configurano per ogni giorno sopra, in “Orari di apertura al pubblico”.</div>'+
-    '<div class="grid cols-2">'+
-      time("bancoInizio","Banco in servizio dalle")+
-      time("camerierArrivo","Cameriere/a arriva alle")+
+      '<div class="card-desc" style="margin:12px 0 0;">'+(s.allungaPerContratto===false
+        ? '<span class="pill pill-warning">disattivato</span> I turni durano esattamente quanto previsto dagli orari. Chi ha poche ore assegnate resterà sotto le ore di contratto: lo vedi nella tabella “Ore rispetto al contratto” sotto i turni.'
+        : '<span class="pill pill-success">attivo</span> L’anticipo non supera mai le ore massime giornaliere, si ferma a quarti d’ora e non tocca chi ha un contratto a chiamata.'+
+          (Number(s.allungaMaxMinuti)>0 ? ' Con l’impostazione attuale al massimo <strong>'+Number(s.allungaMaxMinuti)+' minuti</strong> per turno.' : ''))+'</div>'+
     '</div>'+
-    '<div class="grid cols-2" style="margin-top:14px;">'+
-      num("salaNormale","Persone in sala — giorno normale")+
-      num("bancoNormale","Persone al banco — giorno normale")+
-    '</div></div>'+
 
-  '<div class="card"><h2>Giorni di massima affluenza</h2><div class="card-desc">I giorni in cui serve più gente al mattino: qui decidi quante persone in sala e al banco, e quali giorni della settimana valgono come picco. La priorità di copertura è una cosa distinta e si imposta nella card in cima (“Priorità quando il personale non basta”): questi giorni non la cambiano da soli.</div>'+
-    '<div class="grid cols-2">'+
-      num("salaPicco","Persone in sala — mattina di picco")+
-      num("bancoPicco","Persone al banco — mattina di picco")+
+    '<div class="card"><h2>Pareggiamento straordinari</h2><div class="card-desc">Il programma ricorda quante ore di straordinario ha fatto ciascun dipendente nelle settimane passate. Quando è attivo, a parità di preferenze e disponibilità il generatore preferisce dare eventuali nuove ore di straordinario a chi ne ha accumulate di meno nella finestra scelta qui sotto (media mobile) — resta comunque una preferenza: se serve a garantire la copertura, lo straordinario viene assegnato comunque a chi è disponibile.</div>'+
+      '<label class="check"><input type="checkbox" data-setting-bool="paritaStraordinariEnabled" '+(s.paritaStraordinariEnabled?"checked":"")+'> Prova a pareggiare gli straordinari tra i dipendenti</label>'+
+      '<div class="grid cols-2" style="margin-top:12px;">'+
+        num("paritaStraordinariFinestra","Finestra di calcolo (numero di settimane precedenti)")+
+      '</div>'+
     '</div>'+
-    '<div style="margin-top:12px;display:flex;gap:14px;flex-wrap:wrap;">'+giorniPiccoBoxes+'</div>'+
-  '</div>'+
 
-  '<div class="card"><h2>Giorni speciali</h2><div class="card-desc">I giorni di massima affluenza qui sopra si ripetono ogni settimana. Questi invece sono singole date: Ferragosto, il 31 dicembre, la sagra del paese, un ponte, una chiusura straordinaria. Una data speciale batte sia gli orari standard sia la stagione. Se segni “locale chiuso”, per quel giorno non viene generato nessun turno.</div>'+
-    renderDeroghe(s)+
-  '</div>'+
-
-  '<div class="card"><h2>Turni spezzati</h2><div class="card-desc">Di default non vengono usati: un dipendente può fare al massimo un turno (mattina o pomeriggio) al giorno. Si spezza solo se lo abiliti per la singola persona nella scheda “Personale”.</div>'+
-    '<label class="check"><input type="checkbox" data-setting-bool="spezzatiDiDefault" '+(s.spezzatiDiDefault?"checked":"")+'> Consenti comunque i turni spezzati come opzione generale (resta comunque necessario spuntarlo per ogni dipendente)</label>'+
-  '</div>'+
-
-  '<div class="card"><h2>La tua azienda</h2><div class="card-desc">Chi sei, dove sei e con che logo ti presenti. Il luogo non serve solo all’anagrafica: è quello che permette al programma di proporti i giorni di massima affluenza del tuo territorio.</div>'+
-    renderAzienda(s)+
-  '</div>'+
-
-  '<div class="btn-row" style="margin-bottom:18px;"><button class="btn" id="btn-reset-settings">Ripristina impostazioni di default</button></div>'+
-
-  '<div class="card"><h2>Backup dati</h2><div class="card-desc">Tutto è salvato solo nel browser di questo computer. Esporta un backup prima di svuotare la cache o per portare i dati su un altro computer.</div>'+
-    '<div class="btn-row"><button class="btn" id="btn-export">Esporta dati</button><button class="btn" id="btn-import-toggle">Importa dati</button></div>'+
-    '<div id="export-box" style="display:none;margin-top:14px;">'+
-      '<label class="field">Copia questo testo e conservalo (es. in un file di testo)'+
-      '<textarea readonly id="export-text" style="width:100%;min-height:140px;border:1px solid var(--border);background:var(--bg);color:var(--ink);border-radius:8px;padding:10px;font-family:\'IBM Plex Mono\',monospace;font-size:.72rem;"></textarea></label>'+
-      '<div class="btn-row" style="margin-top:8px;"><button class="btn btn-sm" id="btn-copy-export">Copia negli appunti</button></div>'+
+    '<div class="card"><h2>Regole di tutela del personale</h2><div class="card-desc">Il programma le calcola e le segnala, ma <strong>non blocca mai la copertura di un turno</strong>: se l’unica persona disponibile infrange una di queste regole, il turno viene comunque assegnato e marcato come irregolare, così puoi decidere tu se accettarlo, spostare qualcuno o chiedere più disponibilità. I valori di default seguono la normativa italiana sull’orario di lavoro.</div>'+
+      '<label class="check"><input type="checkbox" data-regola-attiva="riposoGiornaliero" '+(s.regoleTutela.riposoGiornaliero.attiva?"checked":"")+'> Riposo minimo tra la fine di un turno e l’inizio del successivo</label>'+
+      '<div class="grid cols-2" style="margin:8px 0 16px;"><label class="field">Ore di riposo<input type="number" min="0" max="24" data-regola-valore="riposoGiornaliero|ore" value="'+s.regoleTutela.riposoGiornaliero.ore+'"></label></div>'+
+      '<label class="check"><input type="checkbox" data-regola-attiva="riposoSettimanale" '+(s.regoleTutela.riposoSettimanale.attiva?"checked":"")+'> Riposo settimanale continuativo</label>'+
+      '<div class="grid cols-2" style="margin:8px 0 16px;"><label class="field">Ore consecutive di riposo ogni settimana<input type="number" min="0" max="72" data-regola-valore="riposoSettimanale|ore" value="'+s.regoleTutela.riposoSettimanale.ore+'"></label></div>'+
+      '<label class="check"><input type="checkbox" data-regola-attiva="giorniConsecutivi" '+(s.regoleTutela.giorniConsecutivi.attiva?"checked":"")+'> Numero massimo di giorni lavorati di fila</label>'+
+      '<div class="grid cols-2" style="margin:8px 0 0;"><label class="field">Giorni consecutivi<input type="number" min="1" max="14" data-regola-valore="giorniConsecutivi|max" value="'+s.regoleTutela.giorniConsecutivi.max+'"></label></div>'+
+      '<div class="card-desc" style="margin:16px 0 0;">'+(tetto===null
+        ? 'Il massimo di ore giornaliere è disattivato, quindi non produce segnalazioni.'
+        : 'Il limite di ore giornaliere ('+tetto+' h) viene trattato allo stesso modo: superato, il turno resta assegnato ma segnalato.')+'</div>'+
     '</div>'+
-    '<div id="import-box" style="display:none;margin-top:14px;">'+
-      '<label class="field">Incolla qui un backup esportato in precedenza (sostituisce tutti i dati attuali)'+
-      '<textarea id="import-text" style="width:100%;min-height:140px;border:1px solid var(--border);background:var(--bg);color:var(--ink);border-radius:8px;padding:10px;font-family:\'IBM Plex Mono\',monospace;font-size:.72rem;"></textarea></label>'+
-      '<div class="btn-row" style="margin-top:8px;"><button class="btn btn-primary btn-sm" id="btn-do-import">Importa e sostituisci</button></div>'+
+
+    '<div class="card"><h2>Turni spezzati</h2><div class="card-desc">Di default non vengono usati: un dipendente può fare al massimo un turno (mattina o pomeriggio) al giorno. Si spezza solo se lo abiliti per la singola persona nella scheda “Personale”.</div>'+
+      '<label class="check"><input type="checkbox" data-setting-bool="spezzatiDiDefault" '+(s.spezzatiDiDefault?"checked":"")+'> Consenti comunque i turni spezzati come opzione generale (resta comunque necessario spuntarlo per ogni dipendente)</label>'+
+    '</div>';
+  }
+
+  /* ===== Orari, organico e cucina ===== */
+  if(inSezione("orari")){
+    html +=
+    '<div class="card"><h2>Orari di apertura al pubblico</h2><div class="card-desc">Orari di sala/banco per ogni giorno della settimana. Puoi configurare fino a 2 aperture al giorno (es. lun 8–16 e 19–23) per gestire i turni spezzati. Se il locale ha un <strong>giorno di chiusura fisso</strong> (il classico riposo settimanale) spunta “Chiuso tutto il giorno”: quel giorno non verrà generato nessun turno, ogni settimana. La cucina ha orari propri nella card “Cucina” qui sotto.</div>'+
+      '<div class="btn-row" style="margin-bottom:10px;"><button class="btn btn-sm" id="btn-copia-orari-lunedi">Copia il lunedì su tutti gli altri giorni</button></div>'+
+      renderOrariGiorniEditor(s)+
     '</div>'+
-  '</div>';
+
+    '<div class="card" style="border-color:var(--accent);"><h2>Organico ideale</h2>'+
+      '<div class="card-desc">Quante persone servono in <strong>cucina</strong>, al <strong>banco</strong> e in <strong>sala</strong>, per ogni giorno della settimana e per ogni fascia. È questa tabella che decide quanti turni il programma crea: quello che scrivi qui è quello che proverà a coprire. Un giorno di chiusura non genera turni, qualunque numero ci sia scritto.</div>'+
+      '<div class="card-desc">La cucina compare solo sul pranzo e sulla cena: il pomeriggio fa parte del turno di pranzo, e per avere un cuoco la sera servono la seconda apertura e “la cucina segue le fasce”. Con più di un cuoco il programma assegna prima il capo, poi la riserva; i giorni speciali e le loro deroghe di organico continuano a vincere su questa tabella.</div>'+
+      renderOrganico(s)+
+    '</div>'+
+
+    '<div class="card"><h2>Giorni di massima affluenza</h2><div class="card-desc">Una scorciatoia per riempire in un colpo l’organico dei giorni più pieni. Scegli i giorni, scrivi quante persone servono e premi “Applica”: i valori finiscono nella tabella “Organico ideale”, dove restano modificabili cella per cella. Non c’è nessun numero nascosto: dopo l’applicazione la tabella è l’unica cosa che conta.</div>'+
+      '<div class="grid cols-3">'+
+        '<label class="field">Cucina — mattina di picco<input type="number" min="0" max="20" id="picco-cucina" value="'+(Math.max(0,Number(s.organico[DAYS[0]].mattina.cucina)||0))+'"></label>'+
+        '<label class="field">Banco — mattina di picco<input type="number" min="0" max="20" id="picco-banco" value="'+(Math.max(0,Number(s.organico[DAYS[0]].mattina.banco)||0))+'"></label>'+
+        '<label class="field">Sala — mattina di picco<input type="number" min="0" max="20" id="picco-sala" value="'+(Math.max(0,Number(s.organico[DAYS[0]].mattina.sala)||0))+'"></label>'+
+      '</div>'+
+      '<div style="margin-top:12px;display:flex;gap:14px;flex-wrap:wrap;">'+giorniPiccoBoxes+'</div>'+
+      '<div class="btn-row" style="margin-top:12px;"><button class="btn btn-sm btn-primary" id="btn-applica-picco">Applica ai giorni selezionati</button></div>'+
+    '</div>'+
+
+    '<div class="card"><h2>Cucina</h2><div class="card-desc">Il capo e la riserva si alternano (la riserva copre soprattutto i giorni liberi del capo); quando servono più cuochi nello stesso servizio, il programma parte dal capo e poi prende chi è disponibile. La cucina chiude circa mezz’ora prima della fine turno del cuoco. Il <em>numero</em> di cuochi si imposta in “Organico ideale”.</div>'+
+      '<label class="check"><input type="checkbox" data-setting-bool="cucinaSegueFasce" '+(s.cucinaSegueFasce?"checked":"")+'> La cucina segue le fasce orarie del locale (turno pranzo e turno cena separati, con cuoco eventualmente diverso)</label>'+
+      (s.cucinaSegueFasce ? (
+        '<div class="grid cols-1" style="margin-top:14px;max-width:320px;">'+
+          num("minutiCucinaPrimaFineTurno","Minuti di anticipo chiusura cucina")+
+        '</div>'+
+        '<div style="margin-top:14px;">'+renderCucinaOrariEditor(s)+'</div>'
+      ) : (
+        '<div class="grid cols-4" style="margin-top:14px;">'+
+          time("cuocoInizio","Cuoco in servizio dalle")+
+          time("fineTurnoCuocoCapo","Fine turno cuoco capo")+
+          time("fineTurnoCuocoRiserva","Fine turno cuoco riserva")+
+          num("minutiCucinaPrimaFineTurno","Minuti di anticipo chiusura cucina")+
+        '</div>'+
+        '<div class="card-desc" style="margin-top:10px;margin-bottom:0;">Con questi valori la cucina chiude alle <strong class="mono">'+addMin(s.fineTurnoCuocoCapo,-s.minutiCucinaPrimaFineTurno)+'</strong> quando è di turno il capo, e alle <strong class="mono">'+addMin(s.fineTurnoCuocoRiserva,-s.minutiCucinaPrimaFineTurno)+'</strong> quando è di turno la riserva.</div>'
+      ))+
+    '</div>'+
+
+    '<div class="card"><h2>Orari di ingresso di banco e sala</h2><div class="card-desc">Il banco è presente prima dell’apertura per preparare sala e cucina; il/la cameriere/a arriva più tardi. Il cambio turno e la chiusura si configurano per ogni giorno in “Orari di apertura al pubblico”; <em>quante</em> persone servono si imposta in “Organico ideale”.</div>'+
+      '<div class="grid cols-2">'+
+        time("bancoInizio","Banco in servizio dalle")+
+        time("camerierArrivo","Cameriere/a arriva alle")+
+      '</div>'+
+    '</div>';
+  }
+
+  /* ===== Stagioni, chiusure e giorni speciali ===== */
+  if(inSezione("calendario")){
+    html +=
+    '<div class="card"><h2>Stagioni</h2><div class="card-desc">Un intervallo di date che ogni anno sostituisce gli orari standard: sul lago l’estate e l’inverno non sono lo stesso locale. Si scrive giorno e mese (per esempio <span class="mono">06-01</span> → <span class="mono">09-15</span>); un intervallo può anche scavalcare il capodanno. Vale per tutti gli anni, non va rifatto ogni stagione — e ogni stagione può avere i suoi giorni di chiusura.</div>'+
+      renderStagioni(s)+
+    '</div>'+
+
+    '<div class="card" style="border-color:var(--accent);"><h2>Calendario delle chiusure</h2>'+
+      '<div class="card-desc">Le chiusure di routine (il riposo settimanale) si impostano in “Orari di apertura al pubblico” e qui si vedono in grigio. Questo calendario serve per le <strong>chiusure straordinarie</strong>: ferie, lavori, un ponte. Clicca un giorno per chiuderlo, riclicca per riaprirlo. Nei giorni chiusi non viene generato nessun turno e la scheda Assenze li mostra sbarrati, così nessuno ci segna sopra delle ferie per sbaglio.</div>'+
+      renderCalendarioChiusure(s)+
+    '</div>'+
+
+    '<div class="card"><h2>Giorni speciali</h2><div class="card-desc">Singole date che cambiano orari o organico: Ferragosto, il 31 dicembre, la sagra del paese. Una data speciale batte sia gli orari standard sia la stagione. Le chiusure si gestiscono più comodamente dal calendario qui sopra, ma compaiono anche in questo elenco.</div>'+
+      renderDeroghe(s)+
+    '</div>';
+  }
+
+  /* ===== Azienda, backup e ripristino ===== */
+  if(inSezione("azienda")){
+    html +=
+    '<div class="card"><h2>La tua azienda</h2><div class="card-desc">Chi sei, dove sei e con che logo ti presenti. Il luogo non serve solo all’anagrafica: è quello che permette al programma di proporti i giorni di massima affluenza del tuo territorio.</div>'+
+      renderAzienda(s)+
+    '</div>'+
+
+    '<div class="card"><h2>Backup dati</h2><div class="card-desc">Tutto è salvato solo nel browser di questo computer. Esporta un backup prima di svuotare la cache o per portare i dati su un altro computer.</div>'+
+      '<div class="btn-row"><button class="btn" id="btn-export">Esporta dati</button><button class="btn" id="btn-import-toggle">Importa dati</button></div>'+
+      '<div id="export-box" style="display:none;margin-top:14px;">'+
+        '<label class="field">Copia questo testo e conservalo (es. in un file di testo)'+
+        '<textarea readonly id="export-text" style="width:100%;min-height:140px;border:1px solid var(--border);background:var(--bg);color:var(--ink);border-radius:8px;padding:10px;font-family:\'IBM Plex Mono\',monospace;font-size:.72rem;"></textarea></label>'+
+        '<div class="btn-row" style="margin-top:8px;"><button class="btn btn-sm" id="btn-copy-export">Copia negli appunti</button></div>'+
+      '</div>'+
+      '<div id="import-box" style="display:none;margin-top:14px;">'+
+        '<label class="field">Incolla qui un backup esportato in precedenza (sostituisce tutti i dati attuali)'+
+        '<textarea id="import-text" style="width:100%;min-height:140px;border:1px solid var(--border);background:var(--bg);color:var(--ink);border-radius:8px;padding:10px;font-family:\'IBM Plex Mono\',monospace;font-size:.72rem;"></textarea></label>'+
+        '<div class="btn-row" style="margin-top:8px;"><button class="btn btn-primary btn-sm" id="btn-do-import">Importa e sostituisci</button></div>'+
+      '</div>'+
+    '</div>'+
+
+    '<div class="btn-row" style="margin-bottom:18px;"><button class="btn" id="btn-reset-settings">Ripristina impostazioni di default</button></div>';
+  }
+
+  return html;
 }
 
 /* ---------- PERSONALE ---------- */
@@ -2503,6 +3021,11 @@ function renderTurni(){
   }
 
   if(wk.gaps && wk.gaps.length){
+    // un buco su un giorno nel frattempo chiuso non è più un buco: chiedere di coprire
+    // un servizio in un giorno in cui il locale non apre è solo rumore
+    wk.gaps = wk.gaps.filter(function(g){
+      return !configurazioneDelGiorno(state.settings, g.day, addDays(currentWeek, DAYS.indexOf(g.day))).chiuso;
+    });
     var daPrisolvere = wk.gaps.filter(function(g){ return g.livello!=="accettato"; });
     var accettati = wk.gaps.filter(function(g){ return g.livello==="accettato"; });
     if(daPrisolvere.length){
@@ -2532,7 +3055,7 @@ function renderTurni(){
       '<ul class="irr-list">'+irregolari.slice(0,10).map(function(t){
         var nome = empName(t.entry.empId);
         return '<li>'+
-          '<span class="irr-when">'+DAY_LABELS[t.day]+' · '+(SLOT_LABELS[t.key]||t.key)+'</span> '+
+          '<span class="irr-when">'+DAY_LABELS[t.day]+' · '+labelCampo(t.key)+'</span> '+
           '<strong>'+escapeHtml(nome)+'</strong> — '+escapeHtml(testoViolazioni(t.entry.violazioni))+
           (t.entry.forzato ? ' <span class="pill pill-warning">forzato a mano</span>' : '')+
           (t.entry.accettata
@@ -2549,18 +3072,21 @@ function renderTurni(){
   html += '<div class="card-desc no-print" style="margin:-6px 0 10px;">I menu a tendina permettono di assegnare manualmente chiunque, anche chi non risponde ai criteri normali (contrassegnato “fuori ruolo”). La generazione automatica continua invece a rispettare sempre tutte le regole.</div>';
   html += '<div class="table-wrap"><table class="sched-table"><thead><tr><th></th>'+
     DAYS.map(function(d){
-      var picco = state.settings.giorniPicco[d];
       var dataGiorno = addDays(currentWeek, DAYS.indexOf(d));
       var cfgGiorno = configurazioneDelGiorno(state.settings, d, dataGiorno);
       var etichettaSpeciale = cfgGiorno.chiuso
-        ? ' <span class="pill pill-danger" style="margin-left:4px;">chiuso</span>'
+        ? ' <span class="pill pill-danger" style="margin-left:4px;">'+(cfgGiorno.chiusuraRoutine?'chiuso':'chiuso (straordinaria)')+'</span>'
         : (cfgGiorno.etichetta ? ' <span class="pill pill-teal" style="margin-left:4px;">'+escapeHtml(cfgGiorno.etichetta)+'</span>' : '');
-      return '<th>'+DAY_LABELS[d]+(picco?' <span class="pill pill-warning" style="margin-left:4px;">picco</span>':'')+etichettaSpeciale+'<div style="font-weight:400;text-transform:none;font-size:.7rem;">'+fmtDateLabel(dataGiorno)+'</div></th>';
+      return '<th'+(cfgGiorno.chiuso?' class="giorno-chiuso"':'')+'>'+DAY_LABELS[d]+etichettaSpeciale+'<div style="font-weight:400;text-transform:none;font-size:.7rem;">'+fmtDateLabel(dataGiorno)+'</div></th>';
     }).join("")+
   '</tr></thead><tbody>';
 
-  computeSlotOrder(state.settings, currentWeek).forEach(function(slotKey){
-    html += '<tr><td class="role-col">'+SLOT_LABELS[slotKey]+'</td>';
+  var ordineSlot = computeSlotOrder(state.settings, currentWeek, wk);
+  var nCuochiPranzo = ordineSlot.filter(function(k){ return isSlotCuoco(k) && fasciaDiSlotCuoco(k)==="fascia1"; }).length;
+  var nCuochiCena   = ordineSlot.filter(function(k){ return isSlotCuoco(k) && fasciaDiSlotCuoco(k)==="fascia2"; }).length;
+  ordineSlot.forEach(function(slotKey){
+    var totale = isSlotCuoco(slotKey) ? (fasciaDiSlotCuoco(slotKey)==="fascia2" ? nCuochiCena : nCuochiPranzo) : 0;
+    html += '<tr><td class="role-col">'+labelSlot(slotKey, totale)+'</td>';
     DAYS.forEach(function(day){
       html += '<td class="slot-cell">'+renderSlotCell(day, slotKey, wk)+'</td>';
     });
@@ -2575,12 +3101,12 @@ function renderTurni(){
 }
 
 function eligibleForSlotKey(slotKey){
-  if(slotKey==="cuoco"||slotKey==="cuoco_sera") return function(e){ return e.ruoli.cuoco_capo||e.ruoli.cuoco_riserva; };
+  if(isSlotCuoco(slotKey)) return function(e){ return e.ruoli.cuoco_capo||e.ruoli.cuoco_riserva; };
   if(slotKey.indexOf("banco")===0) return function(e){ return e.ruoli.banco; };
   return function(e){ return e.ruoli.sala; };
 }
 function roleClassFor(slotKey){
-  if(slotKey==="cuoco"||slotKey==="cuoco_sera") return "";
+  if(isSlotCuoco(slotKey)) return "";
   if(slotKey.indexOf("banco")===0) return "role-banco";
   return "role-sala";
 }
@@ -2609,9 +3135,19 @@ function badgeIrregolare(a){
   return '<span class="slot-warn" title="'+escapeHtml(testo)+'">⚠ '+escapeHtml(a.violazioni.map(function(v){ return REGOLE_LABELS[v.regola]||v.regola; }).join(" · "))+'</span>';
 }
 function renderSlotCell(day, slotKey, wk){
+  if(!wk.assign[day]) wk.assign[day] = {};
   var filter = eligibleForSlotKey(slotKey);
-  if(slotKey==="cuoco"||slotKey==="cuoco_sera"){
-    var assignField = slotKey==="cuoco" ? "cuoco" : "cuocoSera";
+  // giorno di chiusura: non c'è niente da coprire, e mostrarlo come "scoperto" farebbe
+  // credere a un buco da riempire. Se però ci sono ancora turni salvati da prima della
+  // chiusura, si vedono e si dice chiaramente che vanno rivisti.
+  var cfgCella = configurazioneDelGiorno(state.settings, day, addDays(currentWeek, DAYS.indexOf(day)));
+  if(cfgCella.chiuso){
+    var vecchio = wk.assign[day][isSlotCuoco(slotKey) ? slotCuocoACampo(slotKey) : slotKey];
+    var restano = isSlotCuoco(slotKey) ? !!(vecchio && vecchio.empId) : (Array.isArray(vecchio) && vecchio.some(function(a){ return a && a.empId; }));
+    if(!restano) return '<div class="assenza-cell-terminato" style="padding:8px 0;">chiuso</div>';
+  }
+  if(isSlotCuoco(slotKey)){
+    var assignField = slotCuocoACampo(slotKey);
     var c = wk.assign[day][assignField];
     var slotDefK = getSlotsForDay(state.settings, day, addDays(currentWeek, DAYS.indexOf(day))).find(function(s){ return s.key===slotKey; });
     if(!slotDefK && !c){
@@ -2669,16 +3205,16 @@ function renderConsuntivo(wk, weekStart){
     Object.keys(g).forEach(function(key){
       var v = g[key];
       if(!v) return;
-      var lista = (key==="cuoco"||key==="cuocoSera") ? (v.empId?[v]:[]) : (Array.isArray(v)?v:[]);
+      var lista = isCampoCuoco(key) ? (v.empId?[v]:[]) : (Array.isArray(v)?v:[]);
       lista.forEach(function(a, i){
         if(!a || !a.empId || !a.inizio || !a.fine) return;
-        var rif = day+"|"+key+"|"+((key==="cuoco"||key==="cuocoSera")?0:i);
+        var rif = day+"|"+key+"|"+(isCampoCuoco(key)?0:i);
         var cInizio = a.consuntivo ? a.consuntivo.inizio : a.inizio;
         var cFine = a.consuntivo ? a.consuntivo.fine : a.fine;
         var scost = Math.round((durH(cInizio,cFine) - durH(a.inizio,a.fine))*100)/100;
         righe.push('<tr>'+
           '<td>'+DAY_LABELS[day]+' <span class="mono" style="color:var(--ink-muted);font-size:.78rem;">'+fmtDateLabel(dataGiorno)+'</span></td>'+
-          '<td>'+(SLOT_LABELS[key]||key)+'</td>'+
+          '<td>'+labelCampo(key)+'</td>'+
           '<td>'+escapeHtml(empName(a.empId))+'</td>'+
           '<td class="mono">'+fmtIntervallo(a.inizio,a.fine)+'</td>'+
           '<td><input type="time" data-cons="'+rif+'|inizio" value="'+isoTime(cInizio)+'" style="width:96px;"> '+
@@ -2799,6 +3335,10 @@ function computeAssenzeSummary(dalStr, alStr){
     var assenze = e.assenze || {};
     Object.keys(assenze).forEach(function(d){
       if(d < dalStr || d > alStr) return;
+      // stessa regola usata per l'obiettivo settimanale: un giorno di chiusura non
+      // consuma ferie. Contarlo qui e non là darebbe due numeri diversi, e quello
+      // sbagliato finirebbe dal consulente del lavoro.
+      if(giornoChiuso(state.settings, d)) return;
       var rec = assenze[d];
       if(rec.tipo==="ferie") ferie++;
       else if(rec.tipo==="malattia") malattia++;
@@ -2807,6 +3347,7 @@ function computeAssenzeSummary(dalStr, alStr){
     return {emp:e, ferie:ferie, malattia:malattia, rolOre:rolOre};
   });
 }
+var ETICHETTE_ASSENZA = {ferie:"ferie", malattia:"mal.", rol:"ROL", fine_contratto:"fine"};
 function renderAssenzaCell(emp, dateStr){
   if(emp.fineContrattoDal && dateStr > emp.fineContrattoDal){
     return '<div class="assenza-cell-terminato" title="Contratto terminato dal '+fmtDateLabel(emp.fineContrattoDal)+'">—</div>';
@@ -2861,12 +3402,13 @@ function renderAssenze(){
   '</div>';
 
   html += '<div class="card"><h2>Ferie, malattie, ROL e fine contratto — '+monthLabel+'</h2>'+
-    '<div class="card-desc">Clicca su una casella per segnare ferie, malattia, ROL (indicando le ore) o la fine del contratto per quel dipendente da quel giorno in poi. Un giorno segnato come ferie, malattia o ROL esclude automaticamente quel dipendente dalla generazione automatica dei turni per quel giorno (resta possibile assegnarlo comunque a mano dalla scheda Turni, se necessario); dopo la fine contratto il dipendente non viene più conteggiato nei turni.</div>'+
+    '<div class="card-desc">I giorni in cui il locale è chiuso sono <strong>sbarrati e non compilabili</strong>: non c\u2019\u00e8 turno da coprire, e segnarci sopra delle ferie toglierebbe ore che spettano comunque. Clicca su una casella per segnare ferie, malattia, ROL (indicando le ore) o la fine del contratto per quel dipendente da quel giorno in poi. Un giorno segnato come ferie, malattia o ROL esclude automaticamente quel dipendente dalla generazione automatica dei turni per quel giorno (resta possibile assegnarlo comunque a mano dalla scheda Turni, se necessario); dopo la fine contratto il dipendente non viene più conteggiato nei turni.</div>'+
     '<div class="table-wrap"><table class="assenze-table"><thead><tr><th class="assenze-name-col">Dipendente</th>'+
       days.map(function(d){
         var dow = new Date(d+"T00:00:00").getDay();
         var isWknd = dow===0 || dow===6;
-        return '<th class="'+(isWknd?"assenze-col-weekend":"")+'">'+Number(d.slice(8,10))+'<div style="font-weight:400;text-transform:none;font-size:.62rem;">'+weekdayShortForDate(d)+'</div></th>';
+        var chiuso = giornoChiuso(state.settings, d);
+        return '<th class="'+(isWknd?"assenze-col-weekend":"")+(chiuso?" giorno-chiuso":"")+'" title="'+(chiuso?"Locale chiuso":"")+'">'+Number(d.slice(8,10))+'<div style="font-weight:400;text-transform:none;font-size:.62rem;">'+weekdayShortForDate(d)+'</div></th>';
       }).join("")+
     '</tr></thead><tbody>'+
     state.employees.map(function(e){
@@ -2874,6 +3416,15 @@ function renderAssenze(){
         days.map(function(d){
           var dow = new Date(d+"T00:00:00").getDay();
           var isWknd = dow===0 || dow===6;
+          // giorno di chiusura: non ha senso segnarci ferie o malattia, e se qualcuno
+          // lo facesse quelle ore verrebbero scalate da un giorno in cui non si lavora
+          if(giornoChiuso(state.settings, d)){
+            var vecchia = (e.assenze && e.assenze[d]) || null;
+            return '<td class="assenza-td giorno-chiuso'+(isWknd?" assenze-col-weekend":"")+'" title="Locale chiuso: nessun turno da coprire">'+
+              (vecchia ? '<button class="btn btn-sm" data-assenza-chiusa="'+e.id+'|'+d+'" title="Segnata prima della chiusura: non conta più, clicca per rimuoverla" '+
+                         'style="padding:1px 5px;font-size:.6rem;line-height:1.2;">'+ETICHETTE_ASSENZA[vecchia.tipo]+' ×</button>' : '')+
+            '</td>';
+          }
           return '<td class="assenza-td'+(isWknd?" assenze-col-weekend":"")+'">'+renderAssenzaCell(e,d)+'</td>';
         }).join("")+
       '</tr>';
@@ -3004,7 +3555,11 @@ function wireEvents(){
       var f = inp.getAttribute("data-setting");
       state.settings[f] = inp.type==="number" ? Number(inp.value) : inp.value;
       saveState();
-      if(f==="barName") render(); // il nome compare anche nel titolo in cima
+      // alcuni campi cambiano anche il testo che li descrive (il nome in cima, il
+      // riepilogo del limite giornaliero, l'orario di chiusura cucina): senza un
+      // ridisegno la spiegazione resterebbe quella del valore precedente
+      if(["barName","oreGiornaliereMax","allungaMaxMinuti","minutiCucinaPrimaFineTurno",
+          "fineTurnoCuocoCapo","fineTurnoCuocoRiserva"].indexOf(f)!==-1) render();
     });
   });
   document.querySelectorAll("[data-setting-bool]").forEach(function(inp){
@@ -3014,16 +3569,82 @@ function wireEvents(){
       saveState();
       // alcuni interruttori cambiano la forma della card (es. "la cucina segue le
       // fasce" mostra/nasconde un intero editor per-giorno): serve un render()
-      if(field==="cucinaSegueFasce") render();
+      if(field==="cucinaSegueFasce" || field==="allungaPerContratto") render();
     });
   });
   document.querySelectorAll("[data-picco-day]").forEach(function(inp){
     inp.addEventListener("change", function(){
       state.settings.giorniPicco[inp.getAttribute("data-picco-day")] = inp.checked;
-      // cambia quante persone servono al mattino di quel giorno: il render() rinfresca
-      // anche l'anteprima degli slot e il banner di validazione
       saveState(); render();
     });
+  });
+
+  // navigazione fra le sezioni delle impostazioni
+  var impSel = document.getElementById("imp-sezione");
+  if(impSel) impSel.addEventListener("change", function(){ impSezione = impSel.value; render(); });
+
+  // organico ideale: la tabella che decide quanti turni vengono creati
+  document.querySelectorAll("[data-organico]").forEach(function(inp){
+    inp.addEventListener("change", function(){
+      var parts = inp.getAttribute("data-organico").split("|");
+      var day = parts[0], banda = parts[1], reparto = parts[2];
+      if(!state.settings.organico[day]) state.settings.organico[day] = {};
+      if(!state.settings.organico[day][banda]) state.settings.organico[day][banda] = {cucina:0,banco:0,sala:0};
+      state.settings.organico[day][banda][reparto] = Math.max(0, Math.min(20, Number(inp.value)||0));
+      saveState(); render();
+    });
+  });
+  var copiaOrgBtn = document.getElementById("btn-organico-copia-lunedi");
+  if(copiaOrgBtn) copiaOrgBtn.addEventListener("click", function(){
+    if(!confirm("Copiare l’organico del lunedì su tutti gli altri giorni della settimana?")) return;
+    var src = JSON.stringify(state.settings.organico.lunedi);
+    DAYS.forEach(function(d){ if(d!=="lunedi") state.settings.organico[d] = JSON.parse(src); });
+    saveState(); render();
+  });
+  var piccoBtn = document.getElementById("btn-applica-picco");
+  if(piccoBtn) piccoBtn.addEventListener("click", function(){
+    var leggi = function(id){ var el = document.getElementById(id); return Math.max(0, Math.min(20, Number(el && el.value)||0)); };
+    var valori = {cucina:leggi("picco-cucina"), banco:leggi("picco-banco"), sala:leggi("picco-sala")};
+    var scelti = DAYS.filter(function(d){ return state.settings.giorniPicco[d]; });
+    if(!scelti.length){ alert("Seleziona almeno un giorno di massima affluenza."); return; }
+    if(!confirm("Scrivere "+valori.cucina+" in cucina, "+valori.banco+" al banco e "+valori.sala+" in sala nella mattina di "+
+      scelti.map(function(d){ return DAY_LABELS[d]; }).join(", ")+"?\n\nI valori finiscono nella tabella “Organico ideale”, dove restano modificabili.")) return;
+    scelti.forEach(function(d){
+      state.settings.organico[d].mattina = {cucina:valori.cucina, banco:valori.banco, sala:valori.sala};
+    });
+    saveState(); render();
+  });
+
+  // chiusure di routine sugli orari settimanali
+  document.querySelectorAll("[data-giorno-chiuso]").forEach(function(cb){
+    cb.addEventListener("change", function(){
+      var day = cb.getAttribute("data-giorno-chiuso");
+      state.settings.orariGiorni[day].chiuso = cb.checked;
+      saveState(); render();
+    });
+  });
+  document.querySelectorAll("[data-stagione-chiuso]").forEach(function(cb){
+    cb.addEventListener("change", function(){
+      var parts = cb.getAttribute("data-stagione-chiuso").split("|");
+      var st = state.settings.stagioni[Number(parts[0])];
+      if(!st || !st.orariGiorni) return;
+      if(!st.orariGiorni[parts[1]]) st.orariGiorni[parts[1]] = JSON.parse(JSON.stringify(state.settings.orariGiorni[parts[1]]));
+      st.orariGiorni[parts[1]].chiuso = cb.checked;
+      saveState(); render();
+    });
+  });
+
+  // calendario delle chiusure straordinarie
+  var chiusPrev = document.getElementById("chiusure-mese-prev");
+  if(chiusPrev) chiusPrev.addEventListener("click", function(){ currentChiusureMonth = spostaMese(currentChiusureMonth,-1); render(); });
+  var chiusNext = document.getElementById("chiusure-mese-next");
+  if(chiusNext) chiusNext.addEventListener("click", function(){ currentChiusureMonth = spostaMese(currentChiusureMonth,1); render(); });
+  var chiusPick = document.getElementById("chiusure-mese-pick");
+  if(chiusPick) chiusPick.addEventListener("change", function(){
+    if(/^\d{4}-\d{2}$/.test(chiusPick.value)){ currentChiusureMonth = chiusPick.value; render(); }
+  });
+  document.querySelectorAll("[data-chiusura-giorno]").forEach(function(b){
+    b.addEventListener("click", function(){ commutaChiusura(b.getAttribute("data-chiusura-giorno")); });
   });
   // configurazioni di priorità salvate dall'utente
   var cfgSelect = document.getElementById("cfg-priorita-select");
@@ -3150,6 +3771,7 @@ function wireEvents(){
     inp.addEventListener("change", function(){
       var parts = inp.getAttribute("data-cucina-orario").split("|");
       var day = parts[0], fascia = parts[1], campo = parts[2];
+      if(!/^\d{2}:\d{2}$/.test(inp.value)){ render(); return; } // campo svuotato: si ripristina
       if(!state.settings.orariCucina[day]) state.settings.orariCucina[day] = {fascia1:null, fascia2:null};
       if(!state.settings.orariCucina[day][fascia]) state.settings.orariCucina[day][fascia] = {};
       state.settings.orariCucina[day][fascia][campo] = inp.value;
@@ -3170,7 +3792,7 @@ function wireEvents(){
   });
   var resetBtn = document.getElementById("btn-reset-settings");
   if(resetBtn) resetBtn.addEventListener("click", function(){
-    if(confirm("Ripristinare tutte le impostazioni ai valori di default?")){
+    if(confirm("Ripristinare TUTTE le impostazioni ai valori di default?\n\nSi perdono anche: orari e chiusure, organico ideale, stagioni, giorni speciali e chiusure straordinarie, configurazioni di priorità salvate, anagrafica dell’azienda e logo.\n\nIl personale e i turni già generati non vengono toccati.")){
       state.settings = defaultSettings(); saveState(); render();
     }
   });
@@ -3340,7 +3962,7 @@ function wireEvents(){
       var day = parts[0], key = parts[1], idx = Number(parts[2]), campo = parts[3];
       var wk = state.weeks[currentWeek];
       if(!wk || !wk.assign[day]) return;
-      var entry = (key==="cuoco"||key==="cuocoSera") ? wk.assign[day][key] : (wk.assign[day][key]||[])[idx];
+      var entry = isCampoCuoco(key) ? wk.assign[day][key] : (wk.assign[day][key]||[])[idx];
       if(!entry) return;
       var base = entry.consuntivo || {inizio:entry.inizio, fine:entry.fine};
       var giorno = isoDay(campo==="inizio" ? base.inizio : base.fine);
@@ -3351,7 +3973,7 @@ function wireEvents(){
       nuovo.quando = new Date().toISOString();
       entry.consuntivo = nuovo;
       recomputeHours(wk);
-      registraStorico(wk, "consuntivo", "Consuntivo di "+empName(entry.empId)+" ("+DAY_LABELS[day]+", "+(SLOT_LABELS[key]||key)+"): "+fmtIntervallo(nuovo.inizio, nuovo.fine));
+      registraStorico(wk, "consuntivo", "Consuntivo di "+empName(entry.empId)+" ("+DAY_LABELS[day]+", "+labelCampo(key)+"): "+fmtIntervallo(nuovo.inizio, nuovo.fine));
       saveState(); render();
     });
   });
@@ -3361,7 +3983,7 @@ function wireEvents(){
       var day = parts[0], key = parts[1], idx = Number(parts[2]);
       var wk = state.weeks[currentWeek];
       if(!wk || !wk.assign[day]) return;
-      var entry = (key==="cuoco"||key==="cuocoSera") ? wk.assign[day][key] : (wk.assign[day][key]||[])[idx];
+      var entry = isCampoCuoco(key) ? wk.assign[day][key] : (wk.assign[day][key]||[])[idx];
       if(!entry) return;
       entry.consuntivo = {inizio:entry.inizio, fine:entry.fine, quando:new Date().toISOString()};
       recomputeHours(wk);
@@ -3415,10 +4037,10 @@ function wireEvents(){
       var day = parts[0], key = parts[1], idx = Number(parts[2]);
       var wk = state.weeks[currentWeek];
       if(!wk || !wk.assign[day]) return;
-      var entry = (key==="cuoco"||key==="cuocoSera") ? wk.assign[day][key] : (wk.assign[day][key]||[])[idx];
+      var entry = isCampoCuoco(key) ? wk.assign[day][key] : (wk.assign[day][key]||[])[idx];
       if(!entry) return;
       entry.accettata = {quando:new Date().toISOString()};
-      registraStorico(wk, "accettazione", "Accettata l’eccezione su "+empName(entry.empId)+" ("+DAY_LABELS[day]+", "+(SLOT_LABELS[key]||key)+"): "+testoViolazioni(entry.violazioni));
+      registraStorico(wk, "accettazione", "Accettata l’eccezione su "+empName(entry.empId)+" ("+DAY_LABELS[day]+", "+labelCampo(key)+"): "+testoViolazioni(entry.violazioni));
       saveState(); render();
     });
   });
@@ -3547,6 +4169,7 @@ function wireEvents(){
       var data = parts[0], fascia = parts[1], campo = parts[2];
       var d = state.settings.deroghe[data];
       if(!d) return;
+      if(!/^\d{2}:\d{2}$/.test(inp.value)){ render(); return; } // campo svuotato: si ripristina
       var giorno = DAYS[(new Date(data+"T00:00:00").getDay()+6)%7];
       if(!d.orari) d.orari = JSON.parse(JSON.stringify(configurazioneDelGiorno(state.settings, giorno, data).orari));
       if(!d.orari[fascia]) d.orari[fascia] = {};
@@ -3560,7 +4183,7 @@ function wireEvents(){
       var d = state.settings.deroghe[parts[0]];
       if(!d) return;
       if(!d.staff) d.staff = {};
-      d.staff[parts[1]] = Math.max(0, Number(inp.value)||0);
+      d.staff[parts[1]] = Math.max(0, Math.min(20, Number(inp.value)||0));
       saveState();
     });
   });
@@ -3647,6 +4270,16 @@ function wireEvents(){
     saveState(); render();
   });
 
+  document.querySelectorAll("[data-assenza-chiusa]").forEach(function(b){
+    b.addEventListener("click", function(){
+      var parts = b.getAttribute("data-assenza-chiusa").split("|");
+      var emp = empById(parts[0]);
+      if(!emp || !emp.assenze || !emp.assenze[parts[1]]) return;
+      if(!confirm("Rimuovere questa assenza del "+fmtDateLabel(parts[1])+"?\n\nIl locale quel giorno è chiuso, quindi l’assenza non toglie ore a nessuno: serve solo a tenere pulito il riepilogo.")) return;
+      delete emp.assenze[parts[1]];
+      saveState(); render();
+    });
+  });
   document.querySelectorAll("[data-regola-attiva]").forEach(function(inp){
     inp.addEventListener("change", function(){
       var k = inp.getAttribute("data-regola-attiva");
@@ -3680,14 +4313,14 @@ function wireEvents(){
           forzatura = {quando:new Date().toISOString(), motivi:avvisi};
         }
       }
-      if(slotKey==="cuoco"||slotKey==="cuoco_sera"){
+      if(isSlotCuoco(slotKey)){
         var settings = state.settings;
-        var assignField = slotKey==="cuoco" ? "cuoco" : "cuocoSera";
+        var assignField = slotCuocoACampo(slotKey);
         if(!newVal){ wk.assign[day][assignField] = null; }
         else {
           var e = empById(newVal);
           var tipo = e.ruoli.cuoco_capo ? "capo" : "riserva";
-          var orari = cucinaOrari(settings, day, slotKey==="cuoco"?"fascia1":"fascia2");
+          var orari = cucinaOrari(settings, day, fasciaDiSlotCuoco(slotKey));
           var inizioHHMM = (orari && orari.inizio) || settings.cuocoInizio;
           var fineHHMM = tipo==="capo" ? ((orari&&orari.fineCapo)||settings.fineTurnoCuocoCapo) : ((orari&&orari.fineRiserva)||settings.fineTurnoCuocoRiserva);
           var inizio = isoAt(dataGiorno, inizioHHMM);
@@ -3722,7 +4355,8 @@ function wireEvents(){
       aggiornaViolazioni(wk, currentWeek);
       recomputeHours(wk);
       registraStorico(wk, "modifica-manuale",
-        (newVal ? empName(newVal)+" assegnato a " : "Turno liberato: ")+DAY_LABELS[day]+" · "+(SLOT_LABELS[slotKey]||slotKey)+
+        (newVal ? empName(newVal)+" assegnato a " : "Turno liberato: ")+DAY_LABELS[day]+" · "+
+        (isSlotCuoco(slotKey) ? labelCampo(slotCuocoACampo(slotKey)) : labelSlot(slotKey))+
         (forzatura ? " (forzato: "+forzatura.motivi.join("; ")+")" : ""));
       saveState(); render();
     });
@@ -3797,7 +4431,7 @@ function aggiornaViolazioni(wk, weekStart){
     Object.keys(g).forEach(function(key){
       var v = g[key];
       if(!v) return;
-      if(key==="cuoco"||key==="cuocoSera"){ if(v.empId===empId && v.inizio && v.fine) tot += durH(v.inizio, v.fine); return; }
+      if(isCampoCuoco(key)){ if(v.empId===empId && v.inizio && v.fine) tot += durH(v.inizio, v.fine); return; }
       if(!Array.isArray(v)) return;
       v.forEach(function(a){ if(a && a.empId===empId && a.inizio && a.fine) tot += durH(a.inizio, a.fine); });
     });
@@ -3817,7 +4451,7 @@ function aggiornaViolazioni(wk, weekStart){
     Object.keys(g).forEach(function(key){
       var v = g[key];
       if(!v) return;
-      if(key==="cuoco"||key==="cuocoSera"){ valuta(v); return; }
+      if(isCampoCuoco(key)){ valuta(v); return; }
       if(Array.isArray(v)) v.forEach(valuta);
     });
   });
@@ -3847,8 +4481,8 @@ function controlliManuali(day, slotKey, empId, wk, weekStart){
 
   // orari che avrebbe questo turno, per i controlli di sovrapposizione e di tutela
   var inizioIso = null, fineIso = null, dur = 0;
-  if(slotKey==="cuoco" || slotKey==="cuoco_sera"){
-    var orari = cucinaOrari(settings, day, slotKey==="cuoco"?"fascia1":"fascia2");
+  if(isSlotCuoco(slotKey)){
+    var orari = cucinaOrari(settings, day, fasciaDiSlotCuoco(slotKey));
     var tipo = e.ruoli.cuoco_capo ? "capo" : "riserva";
     var iniH = (orari && orari.inizio) || settings.cuocoInizio;
     var finH = tipo==="capo" ? ((orari&&orari.fineCapo)||settings.fineTurnoCuocoCapo) : ((orari&&orari.fineRiserva)||settings.fineTurnoCuocoRiserva);
@@ -3877,7 +4511,7 @@ function controlliManuali(day, slotKey, empId, wk, weekStart){
     Object.keys(g).forEach(function(k){
       var v = g[k];
       if(!v) return;
-      if(k==="cuoco"||k==="cuocoSera"){ if(v.empId===empId && v.inizio && v.fine) oreGiorno += durH(v.inizio,v.fine); return; }
+      if(isCampoCuoco(k)){ if(v.empId===empId && v.inizio && v.fine) oreGiorno += durH(v.inizio,v.fine); return; }
       if(Array.isArray(v)) v.forEach(function(a){ if(a && a.empId===empId && a.inizio && a.fine) oreGiorno += durH(a.inizio,a.fine); });
     });
     morbide = violazioniTutela(settings, suoi, {inizio:inizioIso, fine:fineIso, oreGiorno:oreGiorno, durata:dur}, weekStart);
@@ -3893,7 +4527,7 @@ function turniIrregolari(wk){
     Object.keys(g).forEach(function(key){
       var v = g[key];
       if(!v) return;
-      if(key==="cuoco"||key==="cuocoSera"){
+      if(isCampoCuoco(key)){
         if(v.violazioni && v.violazioni.length) out.push({day:day, key:key, idx:0, entry:v});
         return;
       }

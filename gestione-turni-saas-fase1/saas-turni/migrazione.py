@@ -57,6 +57,55 @@ def tabella_esiste(leggi, tabella, dialect):
     return len(righe) > 0
 
 
+# Le colonne che il modello ATTUALE dichiara, tabella per tabella. Tutto il resto,
+# in quelle tabelle, è un residuo del modello vecchio (credenziali sull'azienda,
+# soprattutto). I dati residui si tengono — sono la rete di sicurezza della
+# migrazione — ma il vincolo NOT NULL va tolto: il codice non riempie più quelle
+# colonne, quindi ogni inserimento nuovo morirebbe su di esse. È esattamente quello
+# che è successo in produzione al primo invito: "null value in column password_hash
+# of relation aziende violates not-null constraint".
+COLONNE_MODELLO = {
+    "aziende": {"id", "nome", "email", "creato_il", "migrata_il"},
+    "locali": {"id", "azienda_id", "nome", "attivo", "creato_il"},
+    "utenti": {"id", "azienda_id", "email", "password_hash", "ruolo", "locale_id",
+               "creato_il", "token_attivazione", "invitato_il", "attivato_il", "sessione"},
+    "app_state": {"id", "azienda_id", "locale_id", "version", "data", "aggiornato_il"},
+}
+
+
+def allenta_colonne_residue(esegui, leggi, dialect):
+    """Toglie il NOT NULL dalle colonne che il modello attuale non usa più.
+
+    Solo PostgreSQL: in SQLite le tabelle le crea create_all() da zero, quindi
+    colonne residue non esistono, e per togliere un NOT NULL bisognerebbe comunque
+    ricostruire la tabella.
+
+    Idempotente: in PostgreSQL DROP NOT NULL su una colonna già nullable non è un
+    errore, e la lista bianca protegge le colonne che devono restare obbligatorie —
+    una chiave primaria o "nome" non vengono mai toccate.
+    """
+    if dialect != "postgresql":
+        return 0
+    quante = 0
+    for tabella in sorted(COLONNE_MODELLO):
+        if not tabella_esiste(leggi, tabella, dialect):
+            continue
+        attese = COLONNE_MODELLO[tabella]
+        righe = leggi(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name = :t AND table_schema = current_schema() "
+            "AND is_nullable = 'NO'",
+            {"t": tabella},
+        )
+        for r in righe:
+            nome = r[0]
+            if nome in attese:
+                continue
+            esegui('ALTER TABLE %s ALTER COLUMN "%s" DROP NOT NULL' % (tabella, nome))
+            quante += 1
+    return quante
+
+
 def migra_a_locali(esegui, leggi, dialect="sqlite"):
     """Porta uno schema vecchio al nuovo modello. Idempotente: eseguirla due
     volte non cambia niente e non duplica nulla.
@@ -74,6 +123,7 @@ def migra_a_locali(esegui, leggi, dialect="sqlite"):
         "da_verificare": [],   # casi ambigui: NON si tira a indovinare, si segnala
         "stati_orfani": 0,     # stati che puntano a un'azienda che non esiste più
         "colonne_invito": 0,   # colonne aggiunte per gli inviti
+        "vincoli_allentati": 0,  # NOT NULL tolti da colonne del modello vecchio
     }
 
     # database appena creato: create_all() ha già fatto tutto, non c'è nulla da migrare
@@ -123,6 +173,10 @@ def migra_a_locali(esegui, leggi, dialect="sqlite"):
             fatto["colonne_invito"] = fatto.get("colonne_invito", 0) + 1
     if colonne_utenti and "token_attivazione" in colonne_utenti or fatto.get("colonne_invito"):
         esegui("CREATE INDEX IF NOT EXISTS ix_utenti_token_attivazione ON utenti (token_attivazione)")
+
+    # Va fatto SEMPRE, anche su un database già migrato: il marcatore migrata_il
+    # dice che gli utenti sono stati creati, non che i vincoli vecchi sono spariti.
+    fatto["vincoli_allentati"] = allenta_colonne_residue(esegui, leggi, dialect)
 
     colonne_azienda = colonne_di(leggi, "aziende", dialect)
     ha_credenziali_azienda = "password_hash" in colonne_azienda and "email" in colonne_azienda

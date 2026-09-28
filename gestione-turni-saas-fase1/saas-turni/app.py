@@ -739,25 +739,29 @@ def admin_invita(token):
               "sulla riga della sua attività qui sotto.")
         return redirect(url_for("admin_panel", token=token))
 
-    azienda = Azienda(nome=nome, email=email)
-    db.session.add(azienda)
-    db.session.flush()
-    db.session.add(Locale(azienda_id=azienda.id, nome=nome, attivo=True))
-    utente = Utente(azienda_id=azienda.id, email=email, ruolo="titolare", locale_id=None)
-    # password casuale che nessuno conosce: serve solo a tenere la colonna piena
-    # finché la persona non sceglie la sua durante l'attivazione
-    utente.set_password(secrets.token_urlsafe(32))
-    utente.token_attivazione = _nuovo_token_invito()
-    utente.invitato_il = now_utc().isoformat()
-    db.session.add(utente)
+    # Tutta la creazione sta dentro un solo try, flush compreso: è lì che è morto il
+    # primo invito in produzione (una colonna NOT NULL del modello vecchio ancora sul
+    # database), e un 500 nudo non dice a nessuno cosa è andato storto.
     try:
+        azienda = Azienda(nome=nome, email=email)
+        db.session.add(azienda)
+        db.session.flush()
+        db.session.add(Locale(azienda_id=azienda.id, nome=nome, attivo=True))
+        utente = Utente(azienda_id=azienda.id, email=email, ruolo="titolare", locale_id=None)
+        # password casuale che nessuno conosce: serve solo a tenere la colonna piena
+        # finché la persona non sceglie la sua durante l'attivazione
+        utente.set_password(secrets.token_urlsafe(32))
+        utente.token_attivazione = _nuovo_token_invito()
+        utente.invitato_il = now_utc().isoformat()
+        db.session.add(utente)
         db.session.commit()
-    except Exception:
-        # due creazioni contemporanee sulla stessa email: meglio il messaggio già
-        # scritto sopra che un 500 nudo, e niente mezza azienda in giro
+    except Exception as exc:
+        # niente mezza azienda in giro, e il motivo vero scritto sia nei log sia
+        # nel pannello: senza, si resta a guardare un "Internal Server Error"
         db.session.rollback()
-        session["ultimo_errore"] = ("Non è stato possibile creare questo accesso: probabilmente "
-                                    "l'email è già stata usata in questo momento. Riprova.")
+        app.logger.exception("Creazione invito fallita per %s", email)
+        session["ultimo_errore"] = ("Non è stato possibile creare questo accesso. "
+                                    "Dettaglio tecnico: " + str(exc)[:300])
         return redirect(url_for("admin_panel", token=token))
 
     link = _link_attivazione(utente)

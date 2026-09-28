@@ -123,6 +123,23 @@ label.field input:focus,label.field select:focus{border-color:var(--accent);}
 .hero-logo{max-height:56px;max-width:180px;border-radius:8px;display:block;margin-bottom:10px;}
 .logo-preview{max-height:80px;max-width:240px;border:1px solid var(--border);border-radius:8px;padding:6px;background:var(--bg);}
 .imp-nav{margin-bottom:18px;}
+.opz{border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
+.opz-scelta{border:2px solid var(--accent);border-radius:10px;padding:13px 15px;background:var(--amber-soft);}
+.consigli-lista{list-style:none;margin:0;padding:0;}
+.consiglio{display:flex;gap:12px;align-items:flex-start;padding:14px 0;border-top:1px solid var(--border);}
+.consiglio:first-child{border-top:none;padding-top:4px;}
+.consiglio-num{flex:none;width:26px;height:26px;border-radius:50%;background:var(--accent);color:var(--accent-ink);
+  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.78rem;margin-top:2px;}
+.consiglio-corpo{flex:1;min-width:0;}
+.consiglio-titolo{font-weight:700;font-size:.94rem;line-height:1.35;}
+.consiglio-testo{color:var(--ink-muted);font-size:.86rem;margin-top:4px;line-height:1.5;}
+.consiglio-buchi{margin-top:6px;font-size:.74rem;color:var(--ink-muted);font-style:italic;}
+.evidenzia{animation:evidenzia-pulsa 1s ease-out 3;border-radius:8px;}
+@keyframes evidenzia-pulsa{
+  0%{box-shadow:0 0 0 0 var(--accent);}
+  40%{box-shadow:0 0 0 5px var(--amber-soft);}
+  100%{box-shadow:0 0 0 0 transparent;}
+}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
 .cal-dow{font-size:.68rem;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;text-align:center;padding-bottom:4px;}
 .cal-cell{min-height:58px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--ink);
@@ -357,6 +374,71 @@ function normalizzaOrganico(org, fallback){
   });
   return out;
 }
+/* ---------- turni standard ----------
+   Invece di ricavare gli orari dei turni dagli orari di apertura (apertura → cambio
+   turno → chiusura), l'utente può scriverli lui: "mattina 06:00-14:00", "pomeriggio
+   14:00-22:00". Ogni turno standard è legato a una fascia e ai giorni in cui vale.
+   Quando l'opzione è attiva, banco e sala usano questi orari; la cucina continua ad
+   avere i suoi, che sono già scritti a mano nella card "Cucina". */
+function normalizzaTurniStandard(ts){
+  var out = {attivo: !!(ts && ts.attivo), turni: []};
+  if(ts && ts.allungamentoPrima) out.allungamentoPrima = true;
+  var lista = (ts && Array.isArray(ts.turni)) ? ts.turni : [];
+  out.turni = lista.filter(function(t){ return t && typeof t==="object"; }).map(function(t){
+    var giorni = {};
+    DAYS.forEach(function(d){ giorni[d] = t.giorni ? !!t.giorni[d] : true; });
+    return {
+      id: t.id || uid(),
+      nome: String(t.nome || "Turno"),
+      banda: BANDE.indexOf(t.banda)!==-1 ? t.banda : "mattina",
+      reparto: (t.reparto==="banco" || t.reparto==="sala") ? t.reparto : "tutti",
+      inizio: /^\d{2}:\d{2}$/.test(t.inizio) ? t.inizio : "08:00",
+      fine:   /^\d{2}:\d{2}$/.test(t.fine)   ? t.fine   : "14:00",
+      giorni: giorni
+    };
+  }).slice(0, 12);
+  if(!out.turni.length) out.attivo = false;   // senza nessun turno scritto non c'è niente da applicare
+  return out;
+}
+/* Il turno standard che vale per un giorno e una fascia, se c'è. Il primo che combacia:
+   se ce ne fossero due, la validazione lo segnala invece di scegliere a caso in silenzio. */
+/* Il turno standard che vale per un giorno, una fascia e un reparto. Un turno scritto
+   per quel reparto batte quello generico: è così che si tiene lo sfalsamento fra chi
+   apre il banco e chi entra in sala. */
+function turnoStandardDi(settings, day, banda, reparto){
+  var ts = settings.turniStandard;
+  if(!ts || !ts.attivo) return null;
+  var generico = null;
+  for(var i=0;i<ts.turni.length;i++){
+    var t = ts.turni[i];
+    if(t.banda!==banda || !t.giorni[day]) continue;
+    if(reparto && t.reparto===reparto) return t;
+    if((t.reparto||"tutti")==="tutti" && !generico) generico = t;
+  }
+  return generico;
+}
+function defaultTurniStandard(settings){
+  // si parte dagli orari che il locale fa davvero adesso, così accendere l'opzione non
+  // cambia i turni al primo colpo: banco e sala hanno due ingressi diversi, e vanno
+  // scritti come due turni distinti, altrimenti il banco perderebbe l'ora di apertura
+  var giorniAperti = DAYS.filter(function(d){ return !(settings.orariGiorni[d] && settings.orariGiorni[d].chiuso); });
+  var rif = giorniAperti[0] || "lunedi";
+  var og = settings.orariGiorni[rif] || {fascia1:{inizio:"08:00",puntoMedio:"14:30",fine:"21:00"}, fascia2:null};
+  var mappa = function(){ var o={}; DAYS.forEach(function(d){ o[d] = giorniAperti.indexOf(d)!==-1; }); return o; };
+  var out = [
+    {id:uid(), nome:"Banco · mattina", banda:"mattina", reparto:"banco", inizio:settings.bancoInizio,    fine:og.fascia1.puntoMedio, giorni:mappa()},
+    {id:uid(), nome:"Sala · mattina",  banda:"mattina", reparto:"sala",  inizio:settings.camerierArrivo, fine:og.fascia1.puntoMedio, giorni:mappa()},
+    {id:uid(), nome:"Pomeriggio",      banda:"pomeriggio", reparto:"tutti", inizio:og.fascia1.puntoMedio, fine:og.fascia1.fine, giorni:mappa()}
+  ];
+  // la sera può esistere anche solo in alcuni giorni: basta che ci sia da qualche parte
+  var conSera = DAYS.filter(function(d){ return settings.orariGiorni[d] && settings.orariGiorni[d].fascia2; });
+  if(conSera.length){
+    var f2 = settings.orariGiorni[conSera[0]].fascia2;
+    var gSera = {}; DAYS.forEach(function(d){ gSera[d] = conSera.indexOf(d)!==-1; });
+    out.push({id:uid(), nome:"Sera", banda:"sera", reparto:"tutti", inizio:f2.inizio, fine:f2.fine, giorni:gSera});
+  }
+  return out;
+}
 function defaultOrariCucina(cuocoInizio, fineTurnoCuocoCapo, fineTurnoCuocoRiserva){
   var out = {};
   DAYS.forEach(function(d){
@@ -405,6 +487,7 @@ function defaultSettings(){
     paritaStraordinariFinestra:4,
     allungaPerContratto:true,
     allungaMaxMinuti:0,
+    turniStandard: {attivo:false, turni:[]},
     ordinePriorita:["cucina","banco","sala"],
     configurazioniPriorita:[],
     azienda: defaultAzienda(),
@@ -539,6 +622,10 @@ function normalizeState(parsed){
   // sempre attivo e non si poteva spegnere, quindi chi aggiorna lo trova acceso
   if(parsed.settings.allungaPerContratto===undefined) parsed.settings.allungaPerContratto = true;
   if(parsed.settings.allungaMaxMinuti===undefined) parsed.settings.allungaMaxMinuti = 0;
+  parsed.settings.turniStandard = normalizzaTurniStandard(parsed.settings.turniStandard);
+  // le due opzioni si escludono: se un dato vecchio o manomesso le ha entrambe accese,
+  // vince quella più esplicita (i turni standard), che è quella che l'utente ha scritto
+  if(parsed.settings.turniStandard.attivo) parsed.settings.allungaPerContratto = false;
   delete parsed.settings.prioritaProfilo; // le configurazioni di fabbrica non esistono più
   if(parsed.settings.ordinePriorita===undefined) parsed.settings.ordinePriorita = defaultSettings().ordinePriorita;
   parsed.settings.ordinePriorita = normalizePriorityOrder(parsed.settings.ordinePriorita);
@@ -637,6 +724,17 @@ function normalizeState(parsed){
       e.giorniLavorativi = Math.min(6, Math.max(1, gg||5));
     }
   });
+  // I candidati di ogni buco servono a costruire i consigli, e i consigli si calcolano
+  // solo sulla settimana aperta. Tenerli per tutto lo storico gonfierebbe il blob che
+  // viene rispedito al server a ogni singola modifica.
+  var settimane = Object.keys(parsed.weeks).sort();
+  var recenti = settimane.slice(-3);
+  settimane.forEach(function(ws){
+    if(recenti.indexOf(ws)!==-1) return;
+    var w = parsed.weeks[ws];
+    if(w && Array.isArray(w.gaps)) w.gaps.forEach(function(g){ if(g) delete g.candidati; });
+  });
+
   // migrazione: da "HH:MM dentro un giorno" a istanti assoluti nelle assegnazioni salvate.
   // Deterministica (la data si ricava da settimana + giorno) e idempotente. Effetto
   // collaterale voluto: gli eventuali turni notturni già archiviati, che finora
@@ -690,6 +788,8 @@ var activeTab = "turni";
 var currentWeek = mondayOf(isoDate(new Date()));
 var currentAssenzeMonth = isoDate(new Date()).slice(0,7);
 var currentChiusureMonth = isoDate(new Date()).slice(0,7);
+var consigliCorrenti = [];        // i consigli mostrati adesso sotto al planner
+var evidenziaSelettore = null;    // elemento da far notare dopo il prossimo ridisegno
 var editingEmpId = null;
 var USE_API = false;
 var apiVersion = 0;
@@ -828,9 +928,10 @@ function applicaSolaLettura(){
   // renderebbe metà del programma invisibile a chi ha la sola lettura
   var navigazione = ["locale-picker","imp-sezione","week-pick","week-prev","week-next",
                      "assenze-mese-pick","assenze-mese-prev","assenze-mese-next",
-                     "chiusure-mese-pick","chiusure-mese-prev","chiusure-mese-next"];
+                     "chiusure-mese-pick","chiusure-mese-prev","chiusure-mese-next","btn-vai-consigli"];
   app.querySelectorAll("button, input, select, textarea").forEach(function(el){
     if(el.hasAttribute("data-tab") || navigazione.indexOf(el.id)!==-1) return;
+    if(el.hasAttribute("data-consiglio-vai")) return;   // porta solo a guardare, non cambia niente
     el.disabled = true;
   });
 }
@@ -875,6 +976,7 @@ function addDays(dateStr,n){
 }
 function fmtDateLabel(dateStr){
   var d = new Date(dateStr+"T00:00:00");
+  if(isNaN(d.getTime())) return "—";
   return d.toLocaleDateString("it-IT",{day:"2-digit",month:"short"});
 }
 function timeToMin(t){ var p=t.split(":"); return (+p[0])*60+(+p[1]); }
@@ -996,7 +1098,7 @@ function configurazioneDelGiorno(settings, day, dateStr){
     // una data speciale può anche RIAPRIRE un giorno di chiusura di routine
     if(der.aperto){ out.chiuso = false; out.chiusuraRoutine = false; }
     if(out.chiuso) return out;
-    if(der.orari) out.orari = der.orari;
+    if(der.orari){ out.orari = der.orari; out.derogaOrari = true; }
     if(der.priorita) out.priorita = der.priorita;
     if(der.staff){
       REPARTI.forEach(function(r){
@@ -1206,10 +1308,23 @@ function getSlotsForDay(settings, day, dateStr){
     slots.push({key:cuocoSlotKey("fascia1", c), label:etichettaCuoco+(nPranzo>1?" "+(c+1):""),
                 turno:"mattina", count:1, inizio:inizioPranzo, fine:null, isCuoco:true, indiceCuoco:c, fascia:"fascia1"});
   }
-  slots.push({key:"banco_mattina", label:"Banco", turno:"mattina", count:org.mattina.banco, inizio:settings.bancoInizio, fine:f1.puntoMedio, ruolo:"banco"});
-  slots.push({key:"sala_mattina", label:"Sala", turno:"mattina", count:org.mattina.sala, inizio:settings.camerierArrivo, fine:f1.puntoMedio, ruolo:"sala"});
-  slots.push({key:"banco_pomeriggio", label:"Banco", turno:"pomeriggio", count:org.pomeriggio.banco, inizio:f1.puntoMedio, fine:f1.fine, ruolo:"banco"});
-  slots.push({key:"sala_pomeriggio", label:"Sala", turno:"pomeriggio", count:org.pomeriggio.sala, inizio:f1.puntoMedio, fine:f1.fine, ruolo:"sala"});
+  // con i turni standard attivi gli orari li scrive l'utente; altrimenti si ricavano
+  // come sempre dagli orari di apertura (ingresso banco/cameriere, cambio turno, chiusura)
+  // una data speciale con orari propri è il livello più specifico che esista: batte
+  // anche i turni standard, altrimenti il Capodanno uscirebbe con gli orari di sempre
+  var derogaOrari = !!cfg.derogaOrari;
+  var std = function(banda, reparto){ return derogaOrari ? null : turnoStandardDi(settings, day, banda, reparto); };
+  var tsBM = std("mattina","banco"),    tsSM = std("mattina","sala");
+  var tsBP = std("pomeriggio","banco"), tsSP = std("pomeriggio","sala");
+  var tsBS = std("sera","banco"),       tsSS = std("sera","sala");
+  slots.push({key:"banco_mattina", label:"Banco", turno:"mattina", count:org.mattina.banco,
+              inizio: tsBM?tsBM.inizio:settings.bancoInizio,   fine: tsBM?tsBM.fine:f1.puntoMedio, ruolo:"banco", standard:!!tsBM});
+  slots.push({key:"sala_mattina", label:"Sala", turno:"mattina", count:org.mattina.sala,
+              inizio: tsSM?tsSM.inizio:settings.camerierArrivo, fine: tsSM?tsSM.fine:f1.puntoMedio, ruolo:"sala", standard:!!tsSM});
+  slots.push({key:"banco_pomeriggio", label:"Banco", turno:"pomeriggio", count:org.pomeriggio.banco,
+              inizio: tsBP?tsBP.inizio:f1.puntoMedio, fine: tsBP?tsBP.fine:f1.fine, ruolo:"banco", standard:!!tsBP});
+  slots.push({key:"sala_pomeriggio", label:"Sala", turno:"pomeriggio", count:org.pomeriggio.sala,
+              inizio: tsSP?tsSP.inizio:f1.puntoMedio, fine: tsSP?tsSP.fine:f1.fine, ruolo:"sala", standard:!!tsSP});
   if(og.fascia2){
     var f2 = og.fascia2;
     var ocF2 = settings.orariCucina[day] && settings.orariCucina[day].fascia2;
@@ -1220,8 +1335,10 @@ function getSlotsForDay(settings, day, dateStr){
                     turno:"sera", count:1, inizio:ocF2.inizio, fine:null, isCuoco:true, indiceCuoco:c2, fascia:"fascia2"});
       }
     }
-    slots.push({key:"banco_sera", label:"Banco", turno:"sera", count:org.sera.banco, inizio:f2.inizio, fine:f2.fine, ruolo:"banco"});
-    slots.push({key:"sala_sera", label:"Sala", turno:"sera", count:org.sera.sala, inizio:f2.inizio, fine:f2.fine, ruolo:"sala"});
+    slots.push({key:"banco_sera", label:"Banco", turno:"sera", count:org.sera.banco,
+                inizio: tsBS?tsBS.inizio:f2.inizio, fine: tsBS?tsBS.fine:f2.fine, ruolo:"banco", standard:!!tsBS});
+    slots.push({key:"sala_sera", label:"Sala", turno:"sera", count:org.sera.sala,
+                inizio: tsSS?tsSS.inizio:f2.inizio, fine: tsSS?tsSS.fine:f2.fine, ruolo:"sala", standard:!!tsSS});
   }
   return slots;
 }
@@ -1304,9 +1421,12 @@ function tettoGiornaliero(settings){
   return v;
 }
 function fmtOre(h){
+  if(!isFinite(h)) return "nessun limite";
   var m = Math.round(h*60), hh = Math.floor(m/60), mm = m%60;
-  if(hh===0) return mm+" min";
-  return mm ? (hh+"h "+mm+"m") : (hh+" ore");
+  if(m===0) return "0 ore";
+  if(hh===0) return mm===1 ? "1 minuto" : (mm+" min");
+  if(mm) return hh+"h "+mm+"m";
+  return hh===1 ? "1 ora" : (hh+" ore");
 }
 function ms(iso){ return isoToDate(iso).getTime(); }
 
@@ -1711,35 +1831,63 @@ function generateSchedule(weekStart){
   }
   /* quando un turno resta scoperto: perché. Si guarda la prima regola DURA che ha
      escluso ciascuno, e chi ci è andato più vicino sul monte ore. */
-  function diagnosiBuco(ruoloOk, turno, day, dur){
+  /* Perché questo turno è rimasto scoperto. Ritorna sia la frase da mostrare sotto al
+     buco, sia l'elenco di chi *avrebbe potuto* coprirlo e cosa glielo ha impedito: è
+     quest'ultimo che alimenta la sezione "Consigli e soluzioni". Un buco senza il suo
+     elenco di quasi-candidati è un buco su cui non si può dare nessun consiglio utile. */
+  function analizzaBuco(ruoloOk, turno, day, dur, durPer){
     var motivi = {}, vicino = null, vicinoDelta = Infinity, conRuolo = 0;
+    var candidati = [];
     var dateStr = addDays(weekStart, DAYS.indexOf(day));
     employees.forEach(function(e){
       if(!ruoloOk(e)) return;
       conRuolo++;
-      if(e.fineContrattoDal && dateStr >= e.fineContrattoDal){ motivi.contratto=(motivi.contratto||0)+1; return; }
-      if(e.assenze && e.assenze[dateStr]){ motivi.assenza=(motivi.assenza||0)+1; return; }
+      if(e.fineContrattoDal && dateStr >= e.fineContrattoDal){
+        motivi.contratto=(motivi.contratto||0)+1;
+        candidati.push({empId:e.id, motivo:"contratto"}); return;
+      }
+      if(e.assenze && e.assenze[dateStr]){
+        motivi.assenza=(motivi.assenza||0)+1;
+        candidati.push({empId:e.id, motivo:"assenza", tipo:e.assenze[dateStr].tipo}); return;
+      }
       var disp = e.disponibilita && e.disponibilita[day];
-      if(!disp || !disp[turno]){ motivi.disponibilita=(motivi.disponibilita||0)+1; return; }
-      if(turnoTaken[e.id+"|"+day+"_"+turno]){ motivi.giaInTurno=(motivi.giaInTurno||0)+1; return; }
+      if(!disp || !disp[turno]){
+        motivi.disponibilita=(motivi.disponibilita||0)+1;
+        candidati.push({empId:e.id, motivo:"disponibilita"}); return;
+      }
+      if(turnoTaken[e.id+"|"+day+"_"+turno]){
+        motivi.giaInTurno=(motivi.giaInTurno||0)+1;
+        candidati.push({empId:e.id, motivo:"giaInTurno"}); return;
+      }
       var altroTurno = BANDE.some(function(b){ return b!==turno && turnoTaken[e.id+"|"+day+"_"+b]; });
-      if(altroTurno && !e.spezzatiOk){ motivi.spezzati=(motivi.spezzati||0)+1; return; }
-      var max = (Number(e.oreContratto)||0) + (Number(e.straordinario)||0);
-      if(e.tipoContratto==="chiamata" && max<=0) return;
-      var delta = (hoursWorked[e.id]||0) + dur - max;
+      if(altroTurno && !e.spezzatiOk){
+        motivi.spezzati=(motivi.spezzati||0)+1;
+        candidati.push({empId:e.id, motivo:"spezzati"}); return;
+      }
+      // stesso tetto che usa capacityOk: l'obiettivo è già ridotto dalle assenze, e
+      // usare qui il monte ore pieno farebbe sparire dai candidati proprio le persone
+      // che il generatore ha appena scartato per le ore
+      var max = obiettivo[e.id] + (Number(e.straordinario)||0);
+      if(e.tipoContratto==="chiamata" && (Number(e.oreContratto)||0)+(Number(e.straordinario)||0)<=0) return;
+      var durE = durPer ? durPer(e) : dur;
+      var delta = (hoursWorked[e.id]||0) + durE - max;
       if(delta > 0.001){
         motivi.monteOre=(motivi.monteOre||0)+1;
+        candidati.push({empId:e.id, motivo:"monteOre", delta:Math.round(delta*100)/100});
         if(delta < vicinoDelta){ vicinoDelta = delta; vicino = e; }
       }
     });
-    if(!conRuolo) return "nessun dipendente copre questo ruolo";
-    if(motivi.monteOre && vicino) return "tutti oltre il monte ore tollerato — il più vicino è "+vicino.nome+", gli mancano "+fmtOre(vicinoDelta)+" di margine";
-    if(motivi.assenza) return "chi copre il ruolo è assente quel giorno";
-    if(motivi.disponibilita) return "nessuno del ruolo si è dichiarato disponibile in questa fascia";
-    if(motivi.giaInTurno || motivi.spezzati) return "chi poteva coprirlo è già in turno quel giorno";
-    if(motivi.contratto) return "i contratti di chi copre il ruolo sono già terminati";
-    return "nessun candidato idoneo";
+    var perche;
+    if(!conRuolo) perche = "nessun dipendente copre questo ruolo";
+    else if(motivi.monteOre && vicino) perche = "tutti oltre il monte ore tollerato — il più vicino è "+vicino.nome+", gli mancano "+fmtOre(vicinoDelta)+" di margine";
+    else if(motivi.assenza) perche = "chi copre il ruolo è assente quel giorno";
+    else if(motivi.disponibilita) perche = "nessuno del ruolo si è dichiarato disponibile in questa fascia";
+    else if(motivi.giaInTurno || motivi.spezzati) perche = "chi poteva coprirlo è già in turno quel giorno";
+    else if(motivi.contratto) perche = "i contratti di chi copre il ruolo sono già terminati";
+    else perche = "nessun candidato idoneo";
+    return {perche:perche, candidati:candidati, conRuolo:conRuolo};
   }
+  function diagnosiBuco(ruoloOk, turno, day, dur){ return analizzaBuco(ruoloOk, turno, day, dur).perche; }
 
   // cucina + banco/sala: un'unica coda di assegnazione, ordinata per giorni di
   // priorità (1, poi 2, poi resto della settimana) e, dentro ogni livello, per
@@ -1781,9 +1929,12 @@ function generateSchedule(weekStart){
       } else {
         assign[day][assignField] = null;
         var quale = (task.indiceCuoco||0) > 0 ? (" n."+((task.indiceCuoco||0)+1)) : "";
+        var anC = analizzaBuco(function(x){ return x.ruoli.cuoco_capo||x.ruoli.cuoco_riserva; }, turnoKey, day, durCapo,
+                               function(x){ return x.ruoli.cuoco_capo ? durCapo : durRis; });
         gaps.push({day:day, key:assignField, livello:task.livelloGap,
           msg:(task.fascia==="fascia2"?("Nessun cuoco"+quale+" (cena) disponibile — "):("Nessun cuoco"+quale+" disponibile — "))+DAY_LABELS[day],
-          perche: diagnosiBuco(function(x){ return x.ruoli.cuoco_capo||x.ruoli.cuoco_riserva; }, turnoKey, day, durCapo)});
+          perche: anC.perche, candidati: anC.candidati, conRuolo: anC.conRuolo,
+          reparto:"cucina", banda:turnoKey, durata:Math.round(durCapo*100)/100, data:dataGiorno});
       }
     } else {
       var slot = task.slot;
@@ -1806,9 +1957,11 @@ function generateSchedule(weekStart){
           turnoTaken[ch.id+"|"+day+"_"+slot.turno] = true;
         } else {
           var turnoLabel = slot.turno==="mattina"?"mattina":(slot.turno==="pomeriggio"?"pomeriggio":"sera");
+          var anF = analizzaBuco(ruoloSlot, slot.turno, day, dur);
           gaps.push({day:day, key:slot.key, livello:task.livelloGap,
             msg:"Manca "+slot.label.toLowerCase()+" · "+turnoLabel+" — "+DAY_LABELS[day],
-            perche: diagnosiBuco(ruoloSlot, slot.turno, day, dur)});
+            perche: anF.perche, candidati: anF.candidati, conRuolo: anF.conRuolo,
+            reparto:slot.ruolo, banda:slot.turno, durata:Math.round(dur*100)/100, data:dataGiorno});
         }
       }
       assign[day][slot.key] = picked.map(function(p){
@@ -1939,6 +2092,7 @@ function render(){
     '<footer class="hint no-print">'+(USE_API?'Dati condivisi in rete locale su questo computer server. “Esporta dati” resta utile come backup manuale.':'Dati salvati solo in questo browser. Usa “Esporta dati” per un backup prima di cambiare computer o svuotare la cache.')+'</footer>';
   wireEvents();
   applicaSolaLettura();
+  applicaEvidenza();
 }
 
 function heroHtml(){
@@ -2265,6 +2419,7 @@ function validaImpostazioni(s){
   });
   // banco e cameriere non possono iniziare dopo il cambio turno
   DAYS.forEach(function(day){
+    if(s.turniStandard && s.turniStandard.attivo) return; // gli ingressi li decidono i turni standard
     var og = s.orariGiorni[day];
     if(!og || !og.fascia1 || og.chiuso) return;
     if(timeToMin(s.bancoInizio) >= timeToMin(og.fascia1.puntoMedio)){
@@ -2324,6 +2479,39 @@ function validaImpostazioni(s){
     apertiOra.forEach(function(d){
       var somma = REPARTI.reduce(function(acc, r){ return acc + effettivo(d, r); }, 0);
       if(somma===0) out.push({livello:"avviso", testo:DAY_LABELS[d]+": il locale risulta aperto ma l’organico ideale è tutto a zero, quindi non verrà generato nessun turno. Se il giorno è di chiusura, segnalo in “Orari di apertura al pubblico”."});
+    });
+  }
+
+  // turni standard: orari assurdi, doppioni sulla stessa fascia, fasce rimaste scoperte
+  var ts = s.turniStandard;
+  if(ts && ts.attivo){
+    ts.turni.forEach(function(t){
+      var dur = durataFascia(t.inizio, t.fine);
+      if(dur < 0.5 || dur > 16){
+        out.push({livello:"errore", testo:"Turno standard “"+(t.nome||"senza nome")+"”: dura "+fmtOre(dur)+" — probabilmente gli orari sono invertiti."});
+      }
+      if(!DAYS.some(function(d){ return t.giorni[d]; })){
+        out.push({livello:"avviso", testo:"Turno standard “"+(t.nome||"senza nome")+"”: non è attivo in nessun giorno, quindi non viene mai usato."});
+      }
+    });
+    if((s.stagioni||[]).some(function(st){ return st && st.attiva!==false && st.orariGiorni; })){
+      out.push({livello:"avviso", testo:"Hai stagioni con orari propri e i turni standard attivi insieme: nel periodo della stagione banco e sala seguiranno comunque i turni standard. La stagione continua a decidere i giorni di chiusura e le fasce che esistono, non gli orari dei turni."});
+    }
+    DAYS.forEach(function(day){
+      if(s.orariGiorni[day] && s.orariGiorni[day].chiuso) return;
+      var seraDaStagione = (s.stagioni||[]).some(function(st){
+        return st && st.attiva!==false && st.orariGiorni && st.orariGiorni[day] && st.orariGiorni[day].fascia2;
+      });
+      BANDE.forEach(function(banda){
+        if(banda==="sera" && !(s.orariGiorni[day] && s.orariGiorni[day].fascia2) && !seraDaStagione) return;
+        var quanti = ts.turni.filter(function(t){ return t.banda===banda && t.giorni[day]; });
+        if(quanti.length > 1){
+          out.push({livello:"avviso", testo:DAY_LABELS[day]+", fascia "+(BANDA_LABELS[banda]||"").toLowerCase()+": hai "+quanti.length+" turni standard sovrapposti ("+quanti.map(function(t){return t.nome;}).join(", ")+"). Viene usato il primo, “"+quanti[0].nome+"”: gli altri non hanno effetto."});
+        }
+        if(!quanti.length){
+          out.push({livello:"avviso", testo:DAY_LABELS[day]+", fascia "+(BANDA_LABELS[banda]||"").toLowerCase()+": nessun turno standard scritto, quindi per questa fascia valgono gli orari di apertura."});
+        }
+      });
     });
   }
 
@@ -2688,6 +2876,49 @@ function commutaChiusura(dateStr){
   saveState(); render();
 }
 
+function renderTurniStandard(s){
+  var ts = s.turniStandard;
+  var righe = ts.turni.map(function(t, i){
+    var giorniBox = DAYS.map(function(d){
+      return '<label class="check" style="font-size:.78rem;"><input type="checkbox" data-turno-std-giorno="'+i+'|'+d+'" '+(t.giorni[d]?"checked":"")+'>'+DAY_SHORT[d]+'</label>';
+    }).join("");
+    var bandaOpts = BANDE.map(function(b){
+      return '<option value="'+b+'"'+(t.banda===b?" selected":"")+'>'+BANDA_LABELS[b]+'</option>';
+    }).join("");
+    var repOpts = [["tutti","Banco e sala"],["banco","Solo banco"],["sala","Solo sala"]].map(function(r){
+      return '<option value="'+r[0]+'"'+((t.reparto||"tutti")===r[0]?" selected":"")+'>'+r[1]+'</option>';
+    }).join("");
+    var durata = (function(){
+      var m = timeToMin(t.fine) - timeToMin(t.inizio);
+      if(m <= 0) m += 1440;
+      return fmtOre(m/60);
+    })();
+    return '<div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;">'+
+      '<div class="grid cols-3">'+
+        '<label class="field">Nome<input type="text" data-turno-std="'+i+'|nome" value="'+escapeHtml(t.nome)+'" placeholder="Mattina"></label>'+
+        '<label class="field">Dalle<input type="time" data-turno-std="'+i+'|inizio" value="'+escapeHtml(t.inizio)+'"></label>'+
+        '<label class="field">Alle<input type="time" data-turno-std="'+i+'|fine" value="'+escapeHtml(t.fine)+'"></label>'+
+      '</div>'+
+      '<div class="grid cols-2" style="margin-top:10px;">'+
+        '<label class="field">Fascia<select data-turno-std="'+i+'|banda">'+bandaOpts+'</select></label>'+
+        '<label class="field">Vale per<select data-turno-std="'+i+'|reparto">'+repOpts+'</select></label>'+
+      '</div>'+
+      '<div style="margin-top:10px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;">'+
+        '<span style="font-size:.78rem;font-weight:600;color:var(--ink-muted);">Giorni:</span>'+giorniBox+
+        '<span class="pill" style="background:var(--surface-2);color:var(--ink-muted);margin-left:auto;">'+durata+'</span>'+
+        '<button class="btn btn-sm btn-danger" data-turno-std-elimina="'+i+'">Elimina</button>'+
+      '</div>'+
+    '</div>';
+  }).join("");
+  if(!ts.turni.length){
+    righe = '<div class="empty-note" style="margin:10px 0;">Nessun turno standard scritto: finché resta così valgono gli orari di apertura.</div>';
+  }
+  return '<div style="margin-top:14px;">'+righe+
+    '<div class="btn-row"><button class="btn btn-sm" id="btn-turno-std-nuovo">+ Aggiungi turno standard</button></div>'+
+    '<div class="card-desc" style="margin:12px 0 0;">Ogni turno è legato a una fascia: il programma usa il primo che combacia con il giorno e la fascia. Se per un giorno e una fascia non hai scritto nessun turno, per quella fascia valgono gli orari di apertura come prima — e te lo dico nel riquadro dei controlli in cima.</div>'+
+  '</div>';
+}
+
 function renderImpostazioni(){
   var s = state.settings;
   function num(field,label,extra){
@@ -2707,6 +2938,7 @@ function renderImpostazioni(){
   }).join("");
 
   var tetto = tettoGiornaliero(s);
+  var turniAttivi = !!(s.turniStandard && s.turniStandard.attivo);
   var nav = '<div class="imp-nav no-print">'+
     '<label class="field" style="max-width:420px;">Vai a<select id="imp-sezione">'+
       IMP_SEZIONI.map(function(x){ return '<option value="'+x.id+'"'+(impSezione===x.id?" selected":"")+'>'+x.label+'</option>'; }).join("")+
@@ -2738,16 +2970,26 @@ function renderImpostazioni(){
         : '<span class="pill pill-success">limite attivo</span> Oltre <strong>'+tetto+' ore</strong> in un giorno il turno resta assegnato ma viene segnalato come irregolare.')+'</div>'+
     '</div>'+
 
-    '<div class="card"><h2>Ore di contratto e allungamento dei turni</h2>'+
-      '<div class="card-desc">Quando qualcuno resta sotto le proprie ore di contratto, il programma può <strong>anticipare l’ingresso</strong> su turni che quella persona ha già, fino ad avvicinarla alle ore dovute. Il risultato è che due persone si sovrappongono per un pezzo di turno: per certi locali è normale (si dà il cambio, si prepara la sala), per altri è personale in più che non serve.</div>'+
-      '<label class="check"><input type="checkbox" data-setting-bool="allungaPerContratto" '+(s.allungaPerContratto!==false?"checked":"")+'> Allunga i turni per avvicinare ciascuno alle ore di contratto</label>'+
-      '<div class="grid cols-2" style="margin-top:14px;">'+
-        num("allungaMaxMinuti","Anticipo massimo per singolo turno, in minuti (0 = nessun limite)")+
+    '<div class="card" style="border-color:var(--accent);"><h2>Come si decide la durata dei turni</h2>'+
+      '<div class="card-desc">Due modi opposti di ottenere la stessa cosa, e <strong>si escludono a vicenda</strong>: o scrivi tu gli orari dei turni e il programma li usa così come sono, oppure lasci che sia il programma ad allungarli per avvicinare ciascuno alle ore di contratto. Attivandone uno, l’altro si spegne. Se non ne attivi nessuno, gli orari dei turni vengono ricavati dagli orari di apertura, come da sempre.</div>'+
+      '<div class="'+(turniAttivi?'opz-scelta':'opz')+'">'+
+        '<label class="check"><input type="checkbox" data-setting-turni-standard="1" '+(turniAttivi?"checked":"")+'> <strong>Turni standard</strong> — uso gli orari che scrivo io</label>'+
+        '<div class="card-desc" style="margin:8px 0 0;">Scrivi i turni una volta (“mattina 06:00–14:00”, “pomeriggio 14:00–22:00”) e il programma usa sempre quelli per banco e sala, senza calcolarli dagli orari di apertura. La cucina continua a seguire i suoi orari, che sono già scritti a mano nella card “Cucina”.</div>'+
+        (turniAttivi ? renderTurniStandard(s) : '')+
       '</div>'+
-      '<div class="card-desc" style="margin:12px 0 0;">'+(s.allungaPerContratto===false
-        ? '<span class="pill pill-warning">disattivato</span> I turni durano esattamente quanto previsto dagli orari. Chi ha poche ore assegnate resterà sotto le ore di contratto: lo vedi nella tabella “Ore rispetto al contratto” sotto i turni.'
-        : '<span class="pill pill-success">attivo</span> L’anticipo non supera mai le ore massime giornaliere, si ferma a quarti d’ora e non tocca chi ha un contratto a chiamata.'+
-          (Number(s.allungaMaxMinuti)>0 ? ' Con l’impostazione attuale al massimo <strong>'+Number(s.allungaMaxMinuti)+' minuti</strong> per turno.' : ''))+'</div>'+
+      '<div class="'+(s.allungaPerContratto!==false?'opz-scelta':'opz')+'" style="margin-top:12px;">'+
+        '<label class="check"><input type="checkbox" data-setting-bool="allungaPerContratto" '+(s.allungaPerContratto!==false?"checked":"")+(turniAttivi?" disabled":"")+'> <strong>Allunga i turni per le ore di contratto</strong> — decide il programma</label>'+
+        '<div class="card-desc" style="margin:8px 0 0;">Quando qualcuno resta sotto le proprie ore di contratto, il programma <strong>anticipa l’ingresso</strong> su turni che quella persona ha già, fino ad avvicinarla alle ore dovute. Due persone si sovrappongono per un pezzo di turno: per certi locali è normale (si dà il cambio, si prepara la sala), per altri è personale in più che non serve.</div>'+
+        (turniAttivi
+          ? '<div class="card-desc" style="margin:8px 0 0;"><span class="pill" style="background:var(--surface-2);color:var(--ink-muted);">non disponibile</span> I turni standard sono attivi: gli orari li decidi tu, quindi il programma non li allunga. Spegni i turni standard per usare questa opzione.</div>'
+          : '<div class="grid cols-2" style="margin-top:12px;">'+
+              num("allungaMaxMinuti","Anticipo massimo per singolo turno, in minuti (0 = nessun limite)")+
+            '</div>'+
+            '<div class="card-desc" style="margin:12px 0 0;">'+(s.allungaPerContratto===false
+              ? '<span class="pill pill-warning">disattivato</span> I turni durano esattamente quanto previsto dagli orari. Chi ha poche ore assegnate resterà sotto le ore di contratto: lo vedi nella tabella “Ore rispetto al contratto” sotto i turni.'
+              : '<span class="pill pill-success">attivo</span> L’anticipo non supera mai le ore massime giornaliere, si ferma a quarti d’ora e non tocca chi ha un contratto a chiamata.'+
+                (Number(s.allungaMaxMinuti)>0 ? ' Con l’impostazione attuale al massimo <strong>'+Number(s.allungaMaxMinuti)+' minuti</strong> per turno.' : ''))+'</div>')+
+      '</div>'+
     '</div>'+
 
     '<div class="card"><h2>Pareggiamento straordinari</h2><div class="card-desc">Il programma ricorda quante ore di straordinario ha fatto ciascun dipendente nelle settimane passate. Quando è attivo, a parità di preferenze e disponibilità il generatore preferisce dare eventuali nuove ore di straordinario a chi ne ha accumulate di meno nella finestra scelta qui sotto (media mobile) — resta comunque una preferenza: se serve a garantire la copertura, lo straordinario viene assegnato comunque a chi è disponibile.</div>'+
@@ -2769,8 +3011,14 @@ function renderImpostazioni(){
         : 'Il limite di ore giornaliere ('+tetto+' h) viene trattato allo stesso modo: superato, il turno resta assegnato ma segnalato.')+'</div>'+
     '</div>'+
 
-    '<div class="card"><h2>Turni spezzati</h2><div class="card-desc">Di default non vengono usati: un dipendente può fare al massimo un turno (mattina o pomeriggio) al giorno. Si spezza solo se lo abiliti per la singola persona nella scheda “Personale”.</div>'+
-      '<label class="check"><input type="checkbox" data-setting-bool="spezzatiDiDefault" '+(s.spezzatiDiDefault?"checked":"")+'> Consenti comunque i turni spezzati come opzione generale (resta comunque necessario spuntarlo per ogni dipendente)</label>'+
+    '<div class="card"><h2>Turni spezzati</h2>'+
+      '<div class="card-desc">Un turno spezzato è quando la stessa persona lavora due volte nello stesso giorno, con una pausa in mezzo (per esempio pranzo e cena). Il programma non lo fa mai di sua iniziativa: <strong>si decide persona per persona</strong>, con la spunta “Può fare turni spezzati” nella scheda di ciascun dipendente.</div>'+
+      '<div class="card-desc" style="margin-bottom:0;">Oggi '+(function(){
+        var conSpezzati = state.employees.filter(function(e){ return e.spezzatiOk; });
+        if(!state.employees.length) return "non hai ancora inserito nessun dipendente.";
+        if(!conSpezzati.length) return "nessuno dei tuoi dipendenti ha i turni spezzati abilitati, quindi non ne verrà mai creato uno.";
+        return "hanno i turni spezzati abilitati: <strong>"+conSpezzati.map(function(e){ return escapeHtml(e.nome); }).join(", ")+"</strong>.";
+      })()+'</div>'+
     '</div>';
   }
 
@@ -2817,10 +3065,12 @@ function renderImpostazioni(){
     '</div>'+
 
     '<div class="card"><h2>Orari di ingresso di banco e sala</h2><div class="card-desc">Il banco è presente prima dell’apertura per preparare sala e cucina; il/la cameriere/a arriva più tardi. Il cambio turno e la chiusura si configurano per ogni giorno in “Orari di apertura al pubblico”; <em>quante</em> persone servono si imposta in “Organico ideale”.</div>'+
-      '<div class="grid cols-2">'+
-        time("bancoInizio","Banco in servizio dalle")+
-        time("camerierArrivo","Cameriere/a arriva alle")+
-      '</div>'+
+      (turniAttivi
+        ? '<div class="card-desc" style="margin-bottom:0;"><span class="pill" style="background:var(--surface-2);color:var(--ink-muted);">non in uso</span> Hai attivato i <strong>turni standard</strong>: gli orari di ingresso li decidi lì, turno per turno. Questi due campi non vengono letti finché i turni standard restano accesi.</div>'
+        : '<div class="grid cols-2">'+
+            time("bancoInizio","Banco in servizio dalle")+
+            time("camerierArrivo","Cameriere/a arriva alle")+
+          '</div>')+
     '</div>';
   }
 
@@ -3021,19 +3271,25 @@ function renderTurni(){
   }
 
   if(wk.gaps && wk.gaps.length){
-    // un buco su un giorno nel frattempo chiuso non è più un buco: chiedere di coprire
-    // un servizio in un giorno in cui il locale non apre è solo rumore
-    wk.gaps = wk.gaps.filter(function(g){
-      return !configurazioneDelGiorno(state.settings, g.day, addDays(currentWeek, DAYS.indexOf(g.day))).chiuso;
-    });
-    var daPrisolvere = wk.gaps.filter(function(g){ return g.livello!=="accettato"; });
-    var accettati = wk.gaps.filter(function(g){ return g.livello==="accettato"; });
+    // si riguarda com'è la settimana adesso: i giorni nel frattempo chiusi e le caselle
+    // riempite a mano non sono più turni scoperti
+    var apertiOra = buchiAperti(wk, currentWeek);
+    var daPrisolvere = apertiOra.filter(function(g){ return g.livello!=="accettato"; });
+    var accettati = apertiOra.filter(function(g){ return g.livello==="accettato"; });
     if(daPrisolvere.length){
+      var MAX_BUCHI = 8;
       html += '<div class="gap-banner hide-in-planner-print"><strong>'+daPrisolvere.length+' turno/i scoperto/i da risolvere</strong> — i reparti e i giorni di priorità (vedi Impostazioni → Priorità) vengono coperti per primi. Qui non è rimasto nessuno che potesse coprirli:<ul>'+
-        daPrisolvere.map(function(g){
+        daPrisolvere.slice(0, MAX_BUCHI).map(function(g){
           return '<li>'+(g.livello==="critico"?"🔴 ":"🟠 ")+escapeHtml(g.msg)+
             (g.perche?'<div style="opacity:.85;font-size:.94em;margin-top:1px;">'+escapeHtml(g.perche)+'</div>':'')+'</li>';
-        }).join("")+'</ul></div>';
+        }).join("")+'</ul>'+
+        (daPrisolvere.length > MAX_BUCHI
+          ? '<div style="margin-top:6px;">…e altri '+(daPrisolvere.length-MAX_BUCHI)+'. Li trovi contrassegnati nella griglia qui sotto.</div>'
+          : '')+
+        (costruisciConsigli(wk, currentWeek).length
+          ? '<div style="margin-top:8px;"><button class="btn btn-sm" id="btn-vai-consigli">Vedi consigli e soluzioni</button></div>'
+          : '<div style="margin-top:6px;opacity:.85;">Per questi turni non c’è nessuna mossa che li chiuda da sola: servono una persona in più, un’apertura più corta o più disponibilità.</div>')+
+      '</div>';
     }
     if(accettati.length){
       html += '<div class="card hide-in-planner-print" style="background:var(--surface-2);border-style:dashed;"><h2 style="font-size:.95rem;">'+accettati.length+' turno/i lasciati scoperti nei giorni non di punta</h2>'+
@@ -3094,10 +3350,512 @@ function renderTurni(){
   });
   html += '</tbody></table></div>';
 
+  html += renderConsigli(wk, currentWeek);
   html += renderOreSettimanali(wk, currentWeek);
   html += renderConsuntivo(wk, currentWeek);
   html += renderStorico(wk);
   return html;
+}
+
+/* ---------- CONSIGLI E SOLUZIONI ----------
+   Quando la settimana esce con dei turni scoperti, il programma non si limita a dire
+   "non c'era nessuno": guarda CHI ci è andato vicino e cosa gliel'ha impedito, e
+   propone la mossa più piccola che sblocca il turno.
+
+   L'ordine non è casuale. Chiedere a una persona due ore di straordinario in più è la
+   cosa che succede davvero nei locali; spezzare il turno di qualcun altro, o rinunciare
+   a una persona in sala, sono decisioni più pesanti. Quindi: prima lo straordinario,
+   poi la disponibilità, poi l'organico, e solo dopo il resto. Massimo 10 consigli, e
+   solo quelli che hanno un effetto verificabile: riempire la sezione di ipotesi
+   inapplicabili la renderebbe inutile al primo utilizzo. */
+var RANGO_CONSIGLIO = {
+  straordinario: 1, disponibilita: 2, organico: 3, spezzati: 4,
+  contratto: 5, ruolo: 6, assenza: 7, chiusura: 8
+};
+function etichettaReparto(r){ return {cucina:"cucina", banco:"banco", sala:"sala"}[r] || r; }
+function ilGiorno(day){ return (day==="domenica" ? "la " : "il ")+DAY_LABELS[day].toLowerCase(); }
+function elencoGiorni(giorni){
+  var nomi = giorni.map(function(d){ return DAY_LABELS[d].toLowerCase(); });
+  if(nomi.length===1) return nomi[0];
+  return nomi.slice(0,-1).join(", ")+" e "+nomi[nomi.length-1];
+}
+function arrotondaMezzOraSu(h){ return Math.ceil((Number(h)||0) * 2 - 0.0001) / 2; }
+
+/* Margine orario residuo di una persona in questa settimana: quanto ancora può lavorare
+   prima di sfondare contratto + straordinario tollerato. */
+function margineSettimanale(emp, wk, weekStart){
+  // lo stesso tetto che usa il generatore: obiettivo della settimana (già ridotto dalle
+  // ferie e dalle malattie) più lo straordinario tollerato. Usare il monte ore pieno
+  // farebbe promettere margine che al momento della rigenerazione non c'è.
+  if(emp.tipoContratto==="chiamata" && (Number(emp.oreContratto)||0)+(Number(emp.straordinario)||0)<=0) return Infinity;
+  var max = obiettivoSettimanale(emp, weekStart) + (Number(emp.straordinario)||0);
+  return max - orePianificateSettimana(wk, emp.id);
+}
+
+function costruisciConsigli(wk, weekStart){
+  if(!wk || !wk.gaps || !wk.gaps.length) return [];
+  var settings = state.settings;
+  var buchi = buchiAperti(wk, weekStart).filter(function(g){ return g.livello!=="accettato"; });
+  if(!buchi.length) return [];
+
+  var consigli = [];
+  var descriviBuco = function(g){
+    return DAY_LABELS[g.day]+" · "+etichettaReparto(g.reparto||"")+" "+(BANDA_LABELS[g.banda]||"").toLowerCase();
+  };
+
+  /* --- 1. straordinario: la persona c'era, era libera, ma era al tetto delle ore --- */
+  var perPersona = {};
+  buchi.forEach(function(g){
+    (g.candidati||[]).forEach(function(c){
+      if(c.motivo!=="monteOre") return;
+      var e = empById(c.empId);
+      if(!e) return;
+      var v = perPersona[c.empId] = perPersona[c.empId] || {emp:e, minDelta:Infinity, buchi:[], quanti:0};
+      v.quanti++;
+      v.buchi.push(g);
+      if(c.delta < v.minDelta){ v.minDelta = c.delta; v.buco = g; }
+    });
+  });
+  Object.keys(perPersona).forEach(function(id){
+    var v = perPersona[id];
+    if(!isFinite(v.minDelta) || v.minDelta<=0) return;
+    var aggiunta = Math.max(0.5, arrotondaMezzOraSu(v.minDelta));
+    var attuale = Number(v.emp.straordinario)||0;
+    var nuovo = Math.round((attuale + aggiunta)*100)/100;
+    consigli.push({
+      tipo:"straordinario",
+      rango:RANGO_CONSIGLIO.straordinario,
+      peso:v.minDelta,                       // più è piccolo, più è plausibile
+      titolo: v.emp.nome+" può coprire "+descriviBuco(v.buco)+" con "+fmtOre(aggiunta)+" di straordinario in più",
+      testo: "Ha il ruolo, è disponibile quel giorno e non è assente: gli manca solo margine sulle ore. "+
+             "Oggi tollera "+fmtOre(attuale)+" di straordinario a settimana; portandolo a "+fmtOre(nuovo)+" questo turno si copre."+
+             (v.quanti>1 ? " Si è fermato al monte ore anche su altri "+(v.quanti-1)+" turni scoperti: per coprire anche quelli servirebbe altro margine ancora." : ""),
+      buchi: [v.buco],
+      azione: {tipo:"straordinario", empId:id, valore:nuovo,
+               conferma:"Portare lo straordinario tollerato di "+v.emp.nome+" da "+fmtOre(attuale)+" a "+fmtOre(nuovo)+" a settimana e rigenerare i turni?\n\nÈ una richiesta da concordare con la persona, e il valore resta così anche per le settimane successive: il programma cambia solo l’impostazione."},
+      etichettaAzione:"Applica e rigenera",
+      vaiA: {tab:"personale", empId:id, etichetta:"Apri la scheda di "+v.emp.nome}
+    });
+  });
+
+  /* --- 2. disponibilità: la persona è libera e ha margine, ma ha dichiarato di non
+         poter fare quella fascia in quel giorno --- */
+  var perDisp = {};
+  buchi.forEach(function(g){
+    (g.candidati||[]).forEach(function(c){
+      if(c.motivo!=="disponibilita") return;
+      var e = empById(c.empId);
+      if(!e) return;
+      var chiave = c.empId+"|"+g.day+"|"+g.banda;
+      if(perDisp[chiave]) return;
+      var margine = margineSettimanale(e, wk, weekStart);
+      // se oltre alla disponibilità mancherebbero anche le ore, il consiglio è doppio:
+      // resta valido ma vale meno di uno che si risolve con una spunta sola
+      perDisp[chiave] = {emp:e, gap:g, margine:margine, bastaSpunta: margine >= (g.durata||0) - 0.001};
+    });
+  });
+  Object.keys(perDisp).forEach(function(k){
+    var v = perDisp[k], g = v.gap;
+    consigli.push({
+      tipo:"disponibilita",
+      rango:RANGO_CONSIGLIO.disponibilita,
+      peso: v.bastaSpunta ? 0 : 1,
+      titolo: v.emp.nome+" potrebbe coprire "+descriviBuco(g)+", ma ha dichiarato di non essere disponibile in quella fascia",
+      testo: v.bastaSpunta
+        ? "Ha il ruolo, non è assente e "+(isFinite(v.margine) ? "gli restano "+fmtOre(Math.max(0,v.margine))+" di margine sulle ore" : "ha un contratto a chiamata senza tetto di ore")+": se accetta di fare quel turno basta spuntare la sua disponibilità "+ilGiorno(g.day)+" "+(BANDA_LABELS[g.banda]||"").toLowerCase()+"."
+        : "Ha il ruolo e non è assente, ma oltre alla disponibilità gli servirebbero anche "+fmtOre(Math.max(0,(g.durata||0)-v.margine))+" di margine sulle ore: sono due richieste, non una.",
+      buchi:[g],
+      azione: {tipo:"disponibilita", empId:v.emp.id, day:g.day, banda:g.banda,
+               conferma:"Segnare "+v.emp.nome+" come disponibile "+ilGiorno(g.day)+" "+(BANDA_LABELS[g.banda]||"").toLowerCase()+" e rigenerare i turni?\n\nFallo solo dopo averglielo chiesto: è la sua disponibilità dichiarata."},
+      etichettaAzione:"Applica e rigenera",
+      vaiA: {tab:"personale", empId:v.emp.id, selettore:'[data-avail="'+g.day+'|'+g.banda+'"]',
+             etichetta:"Apri la disponibilità di "+v.emp.nome}
+    });
+  });
+
+  /* --- 3. organico: per quel giorno e quella fascia si sta chiedendo più gente di
+         quanta ne esista. Rinunciare a una persona è una decisione del titolare, ma è
+         l'unica che chiude il buco senza chiedere niente a nessuno. --- */
+  var perCella = {};
+  buchi.forEach(function(g){
+    if(!g.reparto || !g.banda) return;
+    var k = g.day+"|"+g.banda+"|"+g.reparto;
+    perCella[k] = (perCella[k]||0) + 1;
+  });
+  // giorni diversi con la stessa identica correzione diventano un consiglio solo:
+  // tre righe uguali una sotto l'altra occupano lo spazio di tre consigli veri
+  var gruppiOrg = {};
+  Object.keys(perCella).forEach(function(k){
+    var parts = k.split("|"), day = parts[0], banda = parts[1], rep = parts[2];
+    var org = settings.organico[day] && settings.organico[day][banda];
+    if(!org) return;
+    // se quel giorno il fabbisogno arriva da una deroga (un giorno speciale), toccare
+    // la tabella dell'organico non cambierebbe niente: sarebbe un vicolo cieco
+    var esempio = buchi.filter(function(g){ return g.day===day && g.banda===banda && g.reparto===rep; })[0];
+    if(esempio && configurazioneDelGiorno(settings, day, esempio.data).staffDeroga) return;
+    var attuale = Number(org[rep])||0;
+    var nuovo = Math.max(0, attuale - perCella[k]);
+    if(nuovo === attuale) return;
+    var gk = banda+"|"+rep+"|"+attuale+"|"+nuovo;
+    if(!gruppiOrg[gk]) gruppiOrg[gk] = {banda:banda, rep:rep, attuale:attuale, nuovo:nuovo, giorni:[], celle:[]};
+    gruppiOrg[gk].giorni.push(day);
+    gruppiOrg[gk].celle.push({day:day, banda:banda, reparto:rep, valore:nuovo});
+  });
+  Object.keys(gruppiOrg).forEach(function(gk){
+    var v = gruppiOrg[gk];
+    var quando = elencoGiorni(v.giorni)+" "+(BANDA_LABELS[v.banda]||"").toLowerCase();
+    var mancanti = v.attuale - v.nuovo;
+    consigli.push({
+      tipo:"organico",
+      rango:RANGO_CONSIGLIO.organico,
+      // rinunciare del tutto a un reparto è più pesante che ridurlo: va in fondo
+      peso: v.nuovo===0 ? 100 : mancanti,
+      titolo: v.nuovo===0
+        ? "Rinuncia a "+etichettaReparto(v.rep)+" "+quando
+        : "Scendi da "+v.attuale+" a "+v.nuovo+" in "+etichettaReparto(v.rep)+" "+quando,
+      testo: "Per questa fascia stai chiedendo "+v.attuale+" "+(v.attuale===1?"persona":"persone")+" e "+
+             (mancanti===1?"una resta scoperta":"ne restano scoperte "+mancanti)+
+             (v.giorni.length>1 ? " su ciascuno di questi giorni" : "")+". "+
+             (v.nuovo===0
+               ? "Con l’organico che hai quel servizio non si copre in nessun modo: o accetti di non farlo, o serve una persona in più."
+               : "Se il servizio regge con "+v.nuovo+", il buco sparisce senza chiedere niente a nessuno.")+
+             " Il numero si cambia in Impostazioni → Orari, organico e cucina → Organico ideale.",
+      buchi: buchi.filter(function(g){ return g.banda===v.banda && g.reparto===v.rep && v.giorni.indexOf(g.day)!==-1; }),
+      azione: {tipo:"organico", celle:v.celle,
+               conferma:"Portare l’organico di "+etichettaReparto(v.rep)+" ("+quando+") da "+v.attuale+" a "+v.nuovo+" e rigenerare i turni?\n\n"+
+                        "L’organico ideale vale per TUTTE le settimane, non solo per questa."},
+      etichettaAzione:"Applica e rigenera",
+      vaiA: {tab:"impostazioni", sezione:"orari", selettore:'[data-organico="'+v.giorni[0]+'|'+v.banda+'|'+v.rep+'"]',
+             etichetta:"Apri l’organico ideale"}
+    });
+  });
+
+  /* --- 4. turni spezzati: la persona quel giorno è già in turno in un'altra fascia --- */
+  var perSpezzati = {};
+  buchi.forEach(function(g){
+    (g.candidati||[]).forEach(function(c){
+      if(c.motivo!=="spezzati") return;
+      var e = empById(c.empId);
+      if(!e || e.spezzatiOk) return;
+      if(!perSpezzati[c.empId]) perSpezzati[c.empId] = {emp:e, buchi:[]};
+      perSpezzati[c.empId].buchi.push(g);
+    });
+  });
+  Object.keys(perSpezzati).forEach(function(id){
+    var v = perSpezzati[id];
+    consigli.push({
+      tipo:"spezzati",
+      rango:RANGO_CONSIGLIO.spezzati,
+      peso: -v.buchi.length,
+      titolo: v.emp.nome+" potrebbe coprire "+descriviBuco(v.buchi[0])+" facendo un turno spezzato",
+      testo: "Quel giorno è già in turno in un’altra fascia e il suo profilo non prevede i turni spezzati. "+
+             "Spezzare una giornata è più pesante che chiedere qualche ora in più a qualcun altro: valutalo dopo gli altri consigli."+
+             (v.buchi.length>1 ? " Si trova nella stessa situazione su "+v.buchi.length+" turni scoperti." : ""),
+      buchi: [v.buchi[0]],
+      azione: {tipo:"spezzati", empId:id,
+               conferma:"Abilitare i turni spezzati per "+v.emp.nome+" e rigenerare?\n\nVuol dire che potrà essere chiamato due volte nello stesso giorno, con una pausa in mezzo."},
+      etichettaAzione:"Applica e rigenera",
+      vaiA: {tab:"personale", empId:id, etichetta:"Apri la scheda di "+v.emp.nome}
+    });
+  });
+
+  /* --- 5. contratti finiti --- */
+  var perContratto = {};
+  buchi.forEach(function(g){
+    (g.candidati||[]).forEach(function(c){
+      if(c.motivo!=="contratto") return;
+      var e = empById(c.empId);
+      // il contratto può essere già stato riattivato dopo la generazione: allora il buco
+      // è vecchio e il consiglio parlerebbe di una data che non esiste più
+      if(e && e.fineContrattoDal && !perContratto[c.empId]) perContratto[c.empId] = {emp:e, gap:g};
+    });
+  });
+  Object.keys(perContratto).forEach(function(id){
+    var v = perContratto[id];
+    consigli.push({
+      tipo:"contratto",
+      rango:RANGO_CONSIGLIO.contratto,
+      peso:0,
+      titolo: v.emp.nome+" coprirebbe "+descriviBuco(v.gap)+", ma risulta con il contratto terminato dal "+fmtDateLabel(v.emp.fineContrattoDal),
+      testo: "Se la data è sbagliata o il contratto è stato rinnovato, riattivalo dalla scheda Personale e rigenera. "+
+             "Il programma non lo fa da solo: rimettere in turno una persona che non è più in forza sarebbe un errore serio.",
+      buchi:[v.gap],
+      azione:null,
+      vaiA: {tab:"personale", empId:id, etichetta:"Apri la scheda di "+v.emp.nome}
+    });
+  });
+
+  /* --- 6. nessuno copre il ruolo --- */
+  var repartiSenzaNessuno = {};
+  buchi.forEach(function(g){
+    if(g.conRuolo===0 && g.reparto) repartiSenzaNessuno[g.reparto+"|"+g.banda] = g;
+  });
+  Object.keys(repartiSenzaNessuno).forEach(function(k){
+    var g = repartiSenzaNessuno[k];
+    var rep = g.reparto;
+    // chi potrebbe prendersi quel ruolo: libero quel giorno, non assente, con margine
+    var giaInTurno = {};
+    forEachAssegnazione(wk, function(x, day, key){
+      if(day!==g.day) return;
+      var b2 = isCampoCuoco(key) ? (String(key).indexOf("Sera")!==-1?"sera":"mattina")
+                                 : (key.indexOf("_sera")!==-1?"sera":(key.indexOf("_pomeriggio")!==-1?"pomeriggio":"mattina"));
+      if(b2===g.banda) giaInTurno[x.empId] = true;
+    });
+    var papabile = state.employees.filter(function(e){
+      if(e.fineContrattoDal && g.data >= e.fineContrattoDal) return false;
+      if(e.assenze && e.assenze[g.data]) return false;
+      if(giaInTurno[e.id]) return false;   // in quella fascia sta già lavorando
+      var disp = e.disponibilita && e.disponibilita[g.day];
+      if(!disp || !disp[g.banda]) return false;
+      return margineSettimanale(e, wk, weekStart) >= (g.durata||0) - 0.001;
+    }).sort(function(a,b){ return margineSettimanale(b, wk, weekStart) - margineSettimanale(a, wk, weekStart); })[0];
+    consigli.push({
+      tipo:"ruolo",
+      rango:RANGO_CONSIGLIO.ruolo,
+      peso:0,
+      titolo: "Nessuno in organico copre il reparto "+etichettaReparto(rep)+
+              (rep==="cucina" ? " (ruoli “Cuoco capo” o “Cuoco riserva”)" : ""),
+      testo: papabile
+        ? "Nessuno dei tuoi dipendenti ha il ruolo “"+etichettaReparto(rep)+"” fra quelli spuntati. "+
+          papabile.nome+" sarebbe libero "+ilGiorno(g.day)+" "+(BANDA_LABELS[g.banda]||"").toLowerCase()+
+          " e ha "+(isFinite(margineSettimanale(papabile, wk, weekStart)) ? fmtOre(Math.max(0,margineSettimanale(papabile, wk, weekStart)))+" di margine" : "un contratto a chiamata senza tetto di ore")+": se sa farlo, spunta il ruolo "+(rep==="cucina"?"“Cuoco capo” o “Cuoco riserva”":"“"+capitalize(etichettaReparto(rep))+"”")+" nella sua scheda."
+        : "Nessuno dei tuoi dipendenti ha il ruolo “"+etichettaReparto(rep)+"” fra quelli spuntati, e nessuno è libero in quella fascia. "+
+          "Qui servono una persona in più o un’apertura più corta.",
+      buchi: [g],
+      azione:null,
+      vaiA: papabile
+        ? {tab:"personale", empId:papabile.id, etichetta:"Apri la scheda di "+papabile.nome}
+        : {tab:"personale", etichetta:"Apri il personale"}
+    });
+  });
+
+  /* --- 7. assenze concentrate --- */
+  var perAssenza = {};
+  buchi.forEach(function(g){
+    var assenti = (g.candidati||[]).filter(function(c){ return c.motivo==="assenza"; });
+    if(!assenti.length) return;
+    // ha senso segnalarlo solo se le assenze sono il vero motivo: nessun altro candidato
+    var altri = (g.candidati||[]).filter(function(c){ return c.motivo!=="assenza"; });
+    if(altri.length) return;
+    var k = g.data;
+    if(!perAssenza[k]) perAssenza[k] = {data:g.data, day:g.day, nomi:{}, buchi:[]};
+    assenti.forEach(function(c){ var e=empById(c.empId); if(e) perAssenza[k].nomi[e.nome]=true; });
+    perAssenza[k].buchi.push(g);
+  });
+  Object.keys(perAssenza).forEach(function(k){
+    var v = perAssenza[k];
+    var nomi = Object.keys(v.nomi);
+    consigli.push({
+      tipo:"assenza",
+      rango:RANGO_CONSIGLIO.assenza,
+      peso:0,
+      titolo: capitalize(ilGiorno(v.day))+" "+fmtDateLabel(v.data)+" sono assenti tutte le persone che potevano coprire",
+      testo: "Chi avrebbe potuto: "+nomi.join(", ")+". Se una di queste assenze è spostabile di un giorno, "+
+             (v.buchi.length===1?"il turno si copre":"si coprono "+v.buchi.length+" turni")+". Le assenze si spostano dalla scheda Assenze.",
+      buchi: v.buchi,
+      azione:null,
+      vaiA: {tab:"assenze", etichetta:"Apri le assenze"}
+    });
+  });
+
+  /* --- 8. ridurre o chiudere l'apertura --- */
+  var perGiorno = {};
+  buchi.forEach(function(g){ perGiorno[g.day+"|"+g.banda] = (perGiorno[g.day+"|"+g.banda]||0)+1; });
+  Object.keys(perGiorno).forEach(function(k){
+    var parts = k.split("|"), day = parts[0], banda = parts[1];
+    var totaleFascia = 0;
+    REPARTI.forEach(function(r){
+      var org = settings.organico[day] && settings.organico[day][banda];
+      if(org) totaleFascia += Number(org[r])||0;
+    });
+    // il consiglio ha senso solo quando la fascia è scoperta per intero
+    if(!totaleFascia || perGiorno[k] < totaleFascia) return;
+    consigli.push({
+      tipo:"chiusura",
+      rango:RANGO_CONSIGLIO.chiusura,
+      peso:0,
+      titolo: DAY_LABELS[day]+" "+(BANDA_LABELS[banda]||"").toLowerCase()+": la fascia è scoperta per intero",
+      testo: "Nessuno può coprire nessuna postazione di questa fascia. Con l’organico attuale quel servizio non esiste: "+
+             "o accorci l’orario di apertura di quel giorno, o lo chiudi, oppure serve una persona in più.",
+      buchi: buchi.filter(function(g){ return g.day===day && g.banda===banda; }),
+      azione:null,
+      vaiA: {tab:"impostazioni", sezione:"orari", selettore:'[data-orario-giorno="'+day+'|fascia1|fine"]',
+             etichetta:"Apri gli orari di apertura"}
+    });
+  });
+
+  // ordinamento: prima il tipo più plausibile, poi dentro il tipo il caso più leggero
+  consigli.sort(function(a,b){
+    if(a.rango !== b.rango) return a.rango - b.rango;
+    if(a.peso !== b.peso) return a.peso - b.peso;
+    return (b.buchi.length||0) - (a.buchi.length||0);
+  });
+  // Dieci consigli su dieci buchi diversi valgono molto più di dieci modi di chiudere
+  // lo stesso buco. Quindi prima si prende, per ogni turno scoperto, la mossa più
+  // plausibile; solo con i posti avanzati si aggiungono le alternative.
+  var chiaveBuco = function(g){ return g.day+"|"+g.key; };
+  var coperti = {}, scelti = [], scarti = [];
+  consigli.forEach(function(c){
+    var nuovi = (c.buchi||[]).filter(function(g){ return !coperti[chiaveBuco(g)]; });
+    if(!nuovi.length){ scarti.push(c); return; }
+    (c.buchi||[]).forEach(function(g){ coperti[chiaveBuco(g)] = true; });
+    scelti.push(c);
+  });
+  if(scelti.length < 10){
+    scarti.forEach(function(c){ if(scelti.length < 10) scelti.push(c); });
+  }
+  return scelti.slice(0, 10);
+}
+
+/* Due postazioni scoperte nello stesso turno hanno lo stesso testo: mostrarle come due
+   righe identiche sembra un errore del programma. Si contano. */
+/* I buchi salvati sono una fotografia scattata alla generazione. Se poi qualcuno ha
+   riempito una casella a mano, quel buco non esiste più: continuare a chiederne la
+   copertura (e a proporre consigli per risolverlo) è il modo più veloce per far perdere
+   fiducia nella schermata. Qui si riguarda com'è la settimana adesso. */
+function buchiAperti(wk, weekStart){
+  if(!wk || !wk.gaps || !wk.assign) return [];
+  var settings = state.settings;
+  var rimasti = {};
+  return wk.gaps.filter(function(g){
+    var dataGiorno = addDays(weekStart, DAYS.indexOf(g.day));
+    if(configurazioneDelGiorno(settings, g.day, dataGiorno).chiuso) return false;
+    var k = g.day+"|"+g.key;
+    if(rimasti[k]===undefined){
+      var cella = wk.assign[g.day] && wk.assign[g.day][g.key];
+      if(isCampoCuoco(g.key)){
+        rimasti[k] = (cella && cella.empId) ? 0 : 1;
+      } else {
+        var slot = getSlotsForDay(settings, g.day, dataGiorno).filter(function(x){ return x.key===g.key; })[0];
+        var serve = slot ? (Number(slot.count)||0) : 0;
+        var coperti = (Array.isArray(cella) ? cella : []).filter(function(a){ return a && a.empId; }).length;
+        rimasti[k] = Math.max(0, serve - coperti);
+      }
+    }
+    if(rimasti[k] > 0){ rimasti[k]--; return true; }
+    return false;
+  });
+}
+function riassumiBuchi(buchi){
+  var conta = {}, ordine = [];
+  (buchi||[]).forEach(function(g){
+    if(conta[g.msg]===undefined){ conta[g.msg] = 0; ordine.push(g.msg); }
+    conta[g.msg]++;
+  });
+  return ordine.map(function(m){ return conta[m]>1 ? m+" ×"+conta[m] : m; });
+}
+function renderConsigli(wk, weekStart){
+  var consigli = costruisciConsigli(wk, weekStart);
+  if(!consigli.length) return "";
+  consigliCorrenti = consigli;
+  // stessa unità di misura da entrambe le parti: postazioni distinte, non voci ripetute
+  var apertiOra = buchiAperti(wk, weekStart).filter(function(g){ return g.livello!=="accettato"; });
+  var scoperti = apertiOra.length;
+  var chiaviScoperte = {}, toccati = {};
+  apertiOra.forEach(function(g){ chiaviScoperte[g.day+"|"+g.key] = true; });
+  consigli.forEach(function(c){ (c.buchi||[]).forEach(function(g){ toccati[g.day+"|"+g.key] = true; }); });
+  var rimasti = Math.max(0, Object.keys(chiaviScoperte).length - Object.keys(toccati).length);
+  var righe = consigli.map(function(c, i){
+    var azione = c.azione
+      ? '<button class="btn btn-sm btn-primary" data-consiglio-applica="'+i+'">'+escapeHtml(c.etichettaAzione||"Applica e rigenera")+'</button>'
+      : '';
+    var vai = c.vaiA
+      ? '<button class="btn btn-sm" data-consiglio-vai="'+i+'">'+escapeHtml(c.vaiA.etichetta||"Apri l’impostazione")+'</button>'
+      : '';
+    return '<li class="consiglio">'+
+      '<div class="consiglio-num">'+(i+1)+'</div>'+
+      '<div class="consiglio-corpo">'+
+        '<div class="consiglio-titolo">'+escapeHtml(c.titolo)+'</div>'+
+        '<div class="consiglio-testo">'+escapeHtml(c.testo)+'</div>'+
+        '<div class="consiglio-buchi">'+(c.buchi.length===1?"Turno interessato: ":"Turni interessati: ")+
+          escapeHtml(riassumiBuchi(c.buchi).slice(0,3).join(" · "))+
+          (riassumiBuchi(c.buchi).length>3 ? ' · e altri '+(riassumiBuchi(c.buchi).length-3) : '')+'</div>'+
+        '<div class="btn-row" style="margin-top:8px;">'+azione+vai+'</div>'+
+      '</div>'+
+    '</li>';
+  }).join("");
+  return '<div class="card hide-in-planner-print no-print" style="border-color:var(--accent);">'+
+    '<h2>Consigli e soluzioni</h2>'+
+    '<div class="card-desc">Questa settimana '+(scoperti===1?'è rimasto scoperto 1 turno':'sono rimasti scoperti '+scoperti+' turni')+
+      '. Qui sotto trovi le mosse che li chiuderebbero, dalla più facile da ottenere alla più impegnativa. '+
+      '“Applica e rigenera” cambia l’impostazione e ricalcola subito la settimana; “Apri…” ti porta dove si cambia a mano, se preferisci guardare prima.</div>'+
+    '<ol class="consigli-lista">'+righe+'</ol>'+
+    '<div class="card-desc" style="margin:14px 0 0;">'+
+      (rimasti>0
+        ? 'Questi '+consigli.length+' consigli non coprono tutti i turni scoperti: ne restano <strong>'+rimasti+'</strong> per cui, con i dati di adesso, non c’è nessuna mossa che li chiuda da sola. Applicane uno e rigenera: l’elenco si ricalcola e spesso quello che restava si sblocca.'
+        : 'Il programma propone solo mosse che hanno un effetto verificabile su un turno scoperto reale, al massimo dieci. Dopo ogni rigenerazione l’elenco si aggiorna.')+'</div>'+
+  '</div>';
+}
+
+/* Porta l'utente esattamente dove si cambia il parametro del consiglio, e glielo fa
+   notare: aprire la scheda giusta ma lasciarlo cercare il campo in mezzo ad altri
+   quaranta non è "portarlo sull'impostazione". */
+function vaiAConsiglio(i){
+  var c = consigliCorrenti[i];
+  if(!c || !c.vaiA) return;
+  var d = c.vaiA;
+  if(d.tab) activeTab = d.tab;
+  if(d.sezione) impSezione = d.sezione;
+  if(d.empId){ editingEmpId = d.empId; }
+  else if(d.tab==="personale") editingEmpId = null;
+  evidenziaSelettore = d.selettore || (d.empId ? "#emp-form" : null);
+  render();
+}
+function applicaEvidenza(){
+  if(!evidenziaSelettore) return;
+  var sel = evidenziaSelettore;
+  evidenziaSelettore = null;
+  var el = null;
+  try{ el = document.querySelector(sel); }catch(e){ return; }
+  if(!el) return;
+  el.scrollIntoView({block:"center", behavior:"smooth"});
+  el.classList.add("evidenzia");
+  setTimeout(function(){ el.classList.remove("evidenzia"); }, 4000);
+}
+
+/* Applica un consiglio e rigenera la settimana. Ogni azione tocca una sola impostazione,
+   e la conferma dice esattamente quale: nessuna modifica silenziosa. */
+function applicaConsiglio(i){
+  var c = consigliCorrenti[i];
+  if(!c || !c.azione) return;
+  var a = c.azione;
+  // rigenerare rifà la settimana da zero: se c'è lavoro fatto a mano o una settimana
+  // già pubblicata, va detto prima, non scoperto dopo
+  var wkOra = state.weeks[currentWeek];
+  var manuali = 0, consuntivi = 0;
+  if(wkOra) forEachAssegnazione(wkOra, function(x){
+    if(x.origine==="manuale") manuali++;
+    if(x.consuntivo) consuntivi++;
+  });
+  var avvertenze = [];
+  if(manuali) avvertenze.push(manuali===1 ? "1 assegnazione fatta a mano verrà rifatta dal programma" : manuali+" assegnazioni fatte a mano verranno rifatte dal programma");
+  if(consuntivi) avvertenze.push(consuntivi===1 ? "1 consuntivo di fine settimana andrà perso" : consuntivi+" consuntivi di fine settimana andranno persi");
+  if(wkOra && statoSettimana(wkOra)==="pubblicato") avvertenze.push("la settimana tornerà in bozza e andrà ripubblicata");
+  var testo = a.conferma;
+  if(avvertenze.length) testo += "\n\nAttenzione, rigenerando: "+avvertenze.join("; ")+".";
+  if(!confirm(testo)) return;
+  if(a.tipo==="straordinario"){
+    var e1 = empById(a.empId); if(!e1) return;
+    e1.straordinario = a.valore;
+  } else if(a.tipo==="disponibilita"){
+    var e2 = empById(a.empId); if(!e2) return;
+    if(!e2.disponibilita[a.day]) e2.disponibilita[a.day] = {mattina:true,pomeriggio:true,sera:true};
+    e2.disponibilita[a.day][a.banda] = true;
+  } else if(a.tipo==="spezzati"){
+    var e3 = empById(a.empId); if(!e3) return;
+    e3.spezzatiOk = true;
+  } else if(a.tipo==="organico"){
+    (a.celle||[]).forEach(function(c2){
+      if(!state.settings.organico[c2.day] || !state.settings.organico[c2.day][c2.banda]) return;
+      state.settings.organico[c2.day][c2.banda][c2.reparto] = c2.valore;
+    });
+  } else {
+    return;
+  }
+  saveState();
+  generateSchedule(currentWeek);
+  evidenziaSelettore = ".consigli-lista";   // si torna dove si stava leggendo
+  render();
 }
 
 function eligibleForSlotKey(slotKey){
@@ -3569,6 +4327,10 @@ function wireEvents(){
       saveState();
       // alcuni interruttori cambiano la forma della card (es. "la cucina segue le
       // fasce" mostra/nasconde un intero editor per-giorno): serve un render()
+      if(field==="allungaPerContratto" && inp.checked && state.settings.turniStandard && state.settings.turniStandard.attivo){
+        state.settings.turniStandard.attivo = false;   // una esclude l'altra
+        saveState();
+      }
       if(field==="cucinaSegueFasce" || field==="allungaPerContratto") render();
     });
   });
@@ -3577,6 +4339,67 @@ function wireEvents(){
       state.settings.giorniPicco[inp.getAttribute("data-picco-day")] = inp.checked;
       saveState(); render();
     });
+  });
+
+  // turni standard (e la loro esclusione reciproca con l'allungamento)
+  var tsToggle = document.querySelector("[data-setting-turni-standard]");
+  if(tsToggle) tsToggle.addEventListener("change", function(){
+    var ts = state.settings.turniStandard;
+    if(tsToggle.checked){
+      if(!ts.turni.length) ts.turni = defaultTurniStandard(state.settings);
+      ts.attivo = true;
+      // le due opzioni non possono convivere: una scrive gli orari, l'altra li allunga.
+      // Si ricorda com'era l'allungamento, per non lasciarlo spento a chi ripensa.
+      ts.allungamentoPrima = state.settings.allungaPerContratto !== false;
+      state.settings.allungaPerContratto = false;
+    } else {
+      ts.attivo = false;
+      if(ts.allungamentoPrima) state.settings.allungaPerContratto = true;
+      delete ts.allungamentoPrima;
+    }
+    saveState(); render();
+  });
+  document.querySelectorAll("[data-turno-std]").forEach(function(inp){
+    inp.addEventListener("change", function(){
+      var parts = inp.getAttribute("data-turno-std").split("|");
+      var t = state.settings.turniStandard.turni[Number(parts[0])];
+      if(!t) return;
+      var campo = parts[1];
+      if((campo==="inizio" || campo==="fine") && !/^\d{2}:\d{2}$/.test(inp.value)){ render(); return; }
+      t[campo] = campo==="nome" ? inp.value.trim() : inp.value;
+      saveState(); render();
+    });
+  });
+  document.querySelectorAll("[data-turno-std-giorno]").forEach(function(cb){
+    cb.addEventListener("change", function(){
+      var parts = cb.getAttribute("data-turno-std-giorno").split("|");
+      var t = state.settings.turniStandard.turni[Number(parts[0])];
+      if(!t) return;
+      t.giorni[parts[1]] = cb.checked;
+      saveState(); render();
+    });
+  });
+  document.querySelectorAll("[data-turno-std-elimina]").forEach(function(b){
+    b.addEventListener("click", function(){
+      var i = Number(b.getAttribute("data-turno-std-elimina"));
+      var t = state.settings.turniStandard.turni[i];
+      if(!t) return;
+      if(!confirm("Eliminare il turno standard “"+(t.nome||"senza nome")+"”?")) return;
+      state.settings.turniStandard.turni.splice(i,1);
+      if(!state.settings.turniStandard.turni.length){
+        state.settings.turniStandard.attivo = false;
+        if(state.settings.turniStandard.allungamentoPrima) state.settings.allungaPerContratto = true;
+        delete state.settings.turniStandard.allungamentoPrima;
+        alert("Era l’ultimo turno standard: l’opzione si è spenta e gli orari tornano a essere ricavati dagli orari di apertura.");
+      }
+      saveState(); render();
+    });
+  });
+  var nuovoTsBtn = document.getElementById("btn-turno-std-nuovo");
+  if(nuovoTsBtn) nuovoTsBtn.addEventListener("click", function(){
+    var giorni = {}; DAYS.forEach(function(d){ giorni[d] = true; });
+    state.settings.turniStandard.turni.push({id:uid(), nome:"Nuovo turno", banda:"mattina", reparto:"tutti", inizio:"08:00", fine:"14:00", giorni:giorni});
+    saveState(); render();
   });
 
   // navigazione fra le sezioni delle impostazioni
@@ -3914,6 +4737,17 @@ function wireEvents(){
   if(weekPrev) weekPrev.addEventListener("click", function(){ currentWeek = addDays(currentWeek,-7); render(); });
   var weekNext = document.getElementById("week-next");
   if(weekNext) weekNext.addEventListener("click", function(){ currentWeek = addDays(currentWeek,7); render(); });
+  var vaiConsigliBtn = document.getElementById("btn-vai-consigli");
+  if(vaiConsigliBtn) vaiConsigliBtn.addEventListener("click", function(){
+    var el = document.querySelector(".consigli-lista");
+    if(el) el.scrollIntoView({block:"start", behavior:"smooth"});
+  });
+  document.querySelectorAll("[data-consiglio-applica]").forEach(function(b){
+    b.addEventListener("click", function(){ applicaConsiglio(Number(b.getAttribute("data-consiglio-applica"))); });
+  });
+  document.querySelectorAll("[data-consiglio-vai]").forEach(function(b){
+    b.addEventListener("click", function(){ vaiAConsiglio(Number(b.getAttribute("data-consiglio-vai"))); });
+  });
   var genBtn = document.getElementById("btn-generate");
   if(genBtn) genBtn.addEventListener("click", function(){ generateSchedule(currentWeek); render(); });
   var convalidaBtn = document.getElementById("btn-convalida");
@@ -4460,6 +5294,8 @@ function aggiornaViolazioni(wk, weekStart){
    a dire al responsabile cosa sta per fare, prima che lo faccia. Le "dure" sono cose
    che il generatore automatico non farebbe mai (una persona in ferie, due postazioni
    nello stesso momento); le "morbide" sono le regole di tutela. */
+/* I messaggi prodotti qui finiscono in un confirm() e nello storico, che sono testo
+   puro: escaparli qui significherebbe far leggere "D&#39;Angelo" al titolare. */
 function controlliManuali(day, slotKey, empId, wk, weekStart){
   var dure = [], morbide = [];
   var e = empById(empId);
@@ -4469,15 +5305,15 @@ function controlliManuali(day, slotKey, empId, wk, weekStart){
   var slotDef = getSlotsForDay(settings, day, dateStr).find(function(s){ return s.key===slotKey; });
 
   if(e.fineContrattoDal && dateStr >= e.fineContrattoDal){
-    dure.push(escapeHtml(e.nome)+" ha il contratto terminato dal "+fmtDateLabel(e.fineContrattoDal));
+    dure.push(e.nome+" ha il contratto terminato dal "+fmtDateLabel(e.fineContrattoDal));
   }
   var ass = e.assenze && e.assenze[dateStr];
   if(ass){
     var etichetta = ass.tipo==="ferie" ? "in ferie" : (ass.tipo==="malattia" ? "in malattia" : "in ROL");
-    dure.push(escapeHtml(e.nome)+" risulta "+etichetta+" il "+fmtDateLabel(dateStr));
+    dure.push(e.nome+" risulta "+etichetta+" il "+fmtDateLabel(dateStr));
   }
   var filtroRuolo = eligibleForSlotKey(slotKey);
-  if(!filtroRuolo(e)) dure.push(escapeHtml(e.nome)+" non copre questo ruolo");
+  if(!filtroRuolo(e)) dure.push(e.nome+" non copre questo ruolo");
 
   // orari che avrebbe questo turno, per i controlli di sovrapposizione e di tutela
   var inizioIso = null, fineIso = null, dur = 0;
@@ -4499,12 +5335,12 @@ function controlliManuali(day, slotKey, empId, wk, weekStart){
     var sovrapposto = suoi.some(function(iv){
       return ms(iv.inizio) < ms(fineIso) && ms(iv.fine) > ms(inizioIso);
     });
-    if(sovrapposto) dure.push(escapeHtml(e.nome)+" è già in turno in un orario che si sovrappone a questo");
+    if(sovrapposto) dure.push(e.nome+" è già in turno in un orario che si sovrappone a questo");
     // monte ore settimanale (contratto + straordinario tollerato)
     var max = (Number(e.oreContratto)||0) + (Number(e.straordinario)||0);
     var oreAttuali = (wk.hoursWorked && wk.hoursWorked[empId]) || 0;
     if(!(e.tipoContratto==="chiamata" && max<=0) && oreAttuali + dur > max + 0.001){
-      dure.push("con questo turno "+escapeHtml(e.nome)+" supera il monte ore settimanale di "+fmtOre(oreAttuali+dur-max));
+      dure.push("con questo turno "+e.nome+" supera il monte ore settimanale di "+fmtOre(oreAttuali+dur-max));
     }
     var oreGiorno = 0;
     var g = wk.assign[day] || {};

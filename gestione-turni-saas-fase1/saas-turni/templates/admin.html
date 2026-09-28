@@ -22,11 +22,48 @@
   .actions button.danger{color:var(--danger);}
   .empty{padding:40px;text-align:center;color:var(--ink-muted);}
   .note{margin-top:20px;font-size:.82rem;color:var(--ink-muted);}
+  .riga-invito{display:flex;gap:10px;flex-wrap:wrap;background:var(--surface);padding:14px;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.06);}
+  .riga-invito input{flex:1;min-width:200px;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:.88rem;}
+  .riga-invito button.primario{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-weight:600;font-size:.88rem;cursor:pointer;font-family:inherit;}
+  .msg{padding:10px 14px;border-radius:8px;font-size:.86rem;margin-bottom:12px;}
+  .msg-ok{background:#e7f5ec;color:var(--accent);}
+  .msg-err{background:#fdecea;color:var(--danger);}
+  .box-invito{background:var(--surface);border:2px solid var(--accent);border-radius:12px;padding:14px;margin-bottom:14px;}
+  .box-tit{font-weight:700;font-size:.85rem;margin-bottom:8px;}
+  .box-invito input{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-family:ui-monospace,monospace;font-size:.8rem;margin-bottom:8px;}
+  .box-invito button{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-weight:600;font-size:.84rem;cursor:pointer;font-family:inherit;}
+  .box-nota{font-size:.8rem;color:var(--ink-muted);margin-top:8px;}
+  .pill-attesa{background:#fdf3e7;color:#9a6300;}
+  .mini{font-size:.76rem;color:var(--accent);border:none;background:none;cursor:pointer;padding:0;font-family:inherit;text-decoration:underline;}
+  .mini-danger{color:var(--danger);}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>Aziende registrate</h1>
+  <h1>Nuovo portale</h1>
+  <p class="sub">Crea l'accesso per una nuova attività e ottieni il link con cui la persona sceglie la sua password ed entra per la prima volta. Il link vale {{ giorni_invito }} giorni.</p>
+
+  {% if errore %}<div class="msg msg-err">{{ errore }}</div>{% endif %}
+  {% if esito %}<div class="msg{{ ' msg-err' if 'non riuscito' in esito or 'non configurato' in esito else ' msg-ok' }}">{{ esito }}</div>{% endif %}
+  {% if invito %}
+  <div class="box-invito">
+    <div class="box-tit">Link di attivazione</div>
+    <input type="text" id="link-invito" readonly value="{{ invito }}">
+    <button type="button" onclick="copiaLink()">Copia</button>
+    <div class="box-nota">Mandalo tu alla persona (WhatsApp, email, quello che preferisci). Chi apre questo link sceglie la password ed entra: da lì parte la procedura guidata di configurazione.</div>
+  </div>
+  {% endif %}
+
+  <form method="post" action="/admin/{{ token }}/invita" class="riga-invito">
+    <input type="email" name="email" placeholder="email della persona" required>
+    <input type="text" name="nome" placeholder="nome dell'attività (facoltativo)">
+    <button type="submit" class="primario">Crea e genera il link</button>
+  </form>
+  {% if not smtp_attivo %}
+  <p class="note" style="margin-top:8px;">L'invio automatico dell'email non è configurato: il link te lo mostro qui e lo mandi tu. Per farlo mandare al programma, imposta su Render le variabili <code>SMTP_HOST</code>, <code>SMTP_PORT</code>, <code>SMTP_USER</code>, <code>SMTP_PASSWORD</code>, <code>MAIL_FROM</code>.</p>
+  {% endif %}
+
+  <h1 style="margin-top:36px;">Aziende registrate</h1>
   <p class="sub">{{ righe|length }} account totali. "Accedi come" ti fa entrare nell'app esattamente come quel cliente, per aiutarlo a configurare i turni — i cambiamenti che fai sono reali per il suo account.</p>
 
   {% if righe %}
@@ -38,6 +75,7 @@
         <th>Creata il</th>
         <th>Dati</th>
         <th>Ultimo aggiornamento</th>
+        <th>Accessi</th>
         <th>Azioni</th>
       </tr>
     </thead>
@@ -55,8 +93,32 @@
           {% endif %}
         </td>
         <td>{{ r.aggiornato_il.strftime('%d/%m/%Y %H:%M') if r.aggiornato_il else '—' }}</td>
+        <td>
+          {% for u in r.utenti %}
+            <div style="font-size:.8rem;margin-bottom:3px;">
+              {{ u.email }}
+              {% if u.token_attivazione %}
+                <span class="pill pill-attesa">da attivare</span>
+                <form method="post" action="/admin/{{ token }}/rigenera-invito/{{ u.id }}" style="display:inline">
+                  <button type="submit" class="mini">rifai il link</button>
+                </form>
+              {% else %}
+                <span class="pill pill-ok">attivo</span>
+                <form method="post" action="/admin/{{ token }}/rigenera-invito/{{ u.id }}" style="display:inline"
+                      onsubmit="return confirm('Reimpostare la password di {{ u.email }}?\n\nLa password attuale smette subito di funzionare e la persona dovrà sceglierne una nuova dal link che ti verrà mostrato. Fallo solo se te lo ha chiesto.');">
+                  <input type="hidden" name="reimposta" value="1">
+                  <button type="submit" class="mini mini-danger">reimposta la password</button>
+                </form>
+              {% endif %}
+            </div>
+          {% else %}
+            <span style="color:var(--ink-muted);font-size:.8rem;">nessun accesso</span>
+          {% endfor %}
+        </td>
         <td class="actions">
-          <a href="/admin/{{ token }}/accedi-come/{{ r.azienda.id }}">Accedi come</a>
+          <form method="post" action="/admin/{{ token }}/accedi-come/{{ r.azienda.id }}" style="display:inline">
+            <button type="submit">Accedi come</button>
+          </form>
           <form method="post" action="/admin/{{ token }}/elimina/{{ r.azienda.id }}" style="display:inline" onsubmit="return confirm('Eliminare definitivamente {{ r.azienda.nome }} e tutti i suoi dati?');">
             <button type="submit" class="danger">Elimina</button>
           </form>
@@ -71,5 +133,17 @@
 
   <p class="note">Questa pagina è protetta solo dal codice segreto nell'indirizzo — non condividerlo. Per tornare qui dopo aver usato "Accedi come", riapri semplicemente questo stesso link.</p>
 </div>
+<script>
+function copiaLink(){
+  var el = document.getElementById("link-invito");
+  el.select(); el.setSelectionRange(0, 99999);
+  var ok = false;
+  try{ if(navigator.clipboard){ navigator.clipboard.writeText(el.value); ok = true; } }catch(e){}
+  if(!ok){ try{ ok = document.execCommand("copy"); }catch(e){} }
+  var b = event.target;
+  b.textContent = ok ? "Copiato \u2713" : "Seleziona e copia";
+  setTimeout(function(){ b.textContent = "Copia"; }, 2000);
+}
+</script>
 </body>
 </html>

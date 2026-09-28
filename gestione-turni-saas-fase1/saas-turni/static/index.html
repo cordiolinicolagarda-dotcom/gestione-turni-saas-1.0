@@ -295,6 +295,83 @@ footer.hint{margin-top:30px;color:var(--ink-muted);font-size:.78rem;text-align:c
   body.planner-print-mode .pill{font-size:5.5px;padding:1px 4px;}
   body.planner-print-mode select{border:none;background:transparent !important;pointer-events:none;-webkit-appearance:none;appearance:none;padding:0;font-size:7px;font-weight:700;width:100%;}
 }
+
+/* ---------- Guida e percorso guidato ---------- */
+.overlay{position:fixed;inset:0;background:rgba(30,42,43,.42);z-index:60;display:flex;justify-content:center;
+  align-items:flex-start;padding:24px 16px;overflow-y:auto;}
+.overlay-box{background:var(--surface);border-radius:16px;box-shadow:0 18px 50px rgba(30,42,43,.22);
+  width:100%;max-width:980px;margin:auto;overflow:hidden;}
+.overlay-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;
+  padding:18px 22px;border-bottom:1px solid var(--border);background:var(--surface-2);}
+.overlay-head h2{font-size:1.1rem;margin:0;}
+.overlay-head .sott{font-size:.8rem;color:var(--ink-muted);margin-top:3px;}
+.overlay-body{padding:20px 22px;}
+.overlay-foot{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;
+  padding:16px 22px;border-top:1px solid var(--border);background:var(--surface-2);}
+.btn-chiudi{border:none;background:none;font-size:1.5rem;line-height:1;color:var(--ink-muted);padding:0 4px;cursor:pointer;}
+.btn-chiudi:hover{color:var(--ink);}
+
+.guida-layout{display:grid;grid-template-columns:262px 1fr;gap:22px;align-items:start;}
+@media(max-width:760px){.guida-layout{grid-template-columns:1fr;}}
+.guida-indice{max-height:56vh;overflow-y:auto;border:1px solid var(--border);border-radius:11px;padding:8px;background:var(--bg);}
+.guida-gruppo{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-muted);
+  padding:10px 8px 4px;}
+.guida-voce{display:block;width:100%;text-align:left;border:none;background:none;font:inherit;font-size:.82rem;
+  padding:6px 8px;border-radius:7px;color:var(--ink);cursor:pointer;}
+.guida-voce:hover{background:var(--surface-2);}
+.guida-voce.attiva{background:var(--amber-soft);color:var(--accent-strong);font-weight:700;}
+.guida-testo{max-height:56vh;overflow-y:auto;padding-right:6px;}
+.guida-testo h3{font-size:1.05rem;margin:0 0 4px;}
+.guida-testo .kicker{font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--accent-strong);margin-bottom:8px;}
+.guida-testo p{font-size:.88rem;line-height:1.62;margin:0 0 11px;}
+.guida-testo ul{font-size:.88rem;line-height:1.62;margin:0 0 11px;padding-left:20px;}
+.guida-testo li{margin-bottom:5px;}
+.guida-testo .formula{background:var(--bg);border:1px solid var(--border);border-left:3px solid var(--teal);
+  border-radius:8px;padding:10px 13px;font-size:.84rem;line-height:1.55;margin:0 0 12px;}
+.guida-testo .attenzione{background:var(--warning-soft);border-radius:8px;padding:10px 13px;font-size:.84rem;
+  line-height:1.55;margin:0 0 12px;color:var(--ink);}
+.guida-cerca{width:100%;border:1px solid var(--border);background:var(--bg);color:var(--ink);border-radius:9px;
+  padding:9px 12px;font:inherit;font-size:.88rem;margin-bottom:12px;}
+.guida-cerca:focus{border-color:var(--accent);outline:none;}
+.guida-hit{border:1px solid var(--border);border-radius:10px;padding:11px 13px;margin-bottom:9px;background:var(--surface);}
+.guida-hit-tit{font-weight:700;font-size:.9rem;margin-bottom:3px;}
+.guida-hit-tit button{border:none;background:none;font:inherit;color:var(--accent-strong);cursor:pointer;padding:0;text-align:left;}
+.guida-hit-estratto{font-size:.82rem;color:var(--ink-muted);line-height:1.5;}
+.guida-hit mark{background:var(--amber-soft);color:var(--accent-strong);padding:0 2px;border-radius:3px;}
+.guida-nulla{font-size:.86rem;color:var(--ink-muted);line-height:1.6;}
+.guida-aggiornata{font-size:.74rem;color:var(--ink-muted);}
+
+.wiz-barra{display:flex;gap:5px;margin-bottom:18px;}
+.wiz-tacca{flex:1;height:5px;border-radius:99px;background:var(--surface-2);}
+.wiz-tacca.fatta{background:var(--accent);}
+.wiz-tacca.ora{background:var(--accent);opacity:.55;}
+.wiz-passo{font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--accent-strong);margin-bottom:5px;}
+.wiz-body h3{font-size:1.18rem;margin:0 0 6px;}
+.wiz-body p.intro{font-size:.9rem;color:var(--ink-muted);line-height:1.6;margin:0 0 18px;}
+.wiz-scelta{display:block;width:100%;text-align:left;border:1px solid var(--border);border-radius:11px;padding:13px 15px;
+  background:var(--surface);font:inherit;cursor:pointer;margin-bottom:10px;}
+.wiz-scelta:hover{border-color:var(--accent);}
+.wiz-scelta.sel{border:2px solid var(--accent);background:var(--amber-soft);}
+.wiz-scelta b{display:block;font-size:.92rem;margin-bottom:2px;}
+.wiz-scelta span{font-size:.8rem;color:var(--ink-muted);line-height:1.5;}
+.wiz-giorno{display:grid;grid-template-columns:96px 1fr;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);}
+.wiz-giorno:last-child{border-bottom:none;}
+.wiz-giorno-nome{font-weight:700;font-size:.85rem;}
+.wiz-orari{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:.8rem;color:var(--ink-muted);}
+.wiz-orari input[type="time"]{border:1px solid var(--border);background:var(--bg);color:var(--ink);border-radius:7px;padding:5px 7px;font:inherit;font-size:.82rem;}
+.wiz-orari select{border:1px solid var(--border);background:var(--bg);color:var(--ink);border-radius:7px;padding:5px 7px;font:inherit;font-size:.8rem;}
+.wiz-tab{width:100%;border-collapse:collapse;}
+.wiz-tab th,.wiz-tab td{padding:7px 8px;font-size:.82rem;border-bottom:1px solid var(--border);white-space:nowrap;}
+.wiz-tab input[type="number"]{width:62px;border:1px solid var(--border);background:var(--bg);color:var(--ink);border-radius:7px;padding:5px 7px;font:inherit;font-size:.84rem;}
+.wiz-tab input[type="text"]{width:100%;min-width:120px;border:1px solid var(--border);background:var(--bg);color:var(--ink);border-radius:7px;padding:5px 7px;font:inherit;font-size:.84rem;}
+.wiz-recap{background:var(--bg);border:1px solid var(--border);border-radius:11px;padding:14px 16px;font-size:.86rem;line-height:1.7;}
+.wiz-recap b{color:var(--ink);}
+.attenzione-box{background:var(--danger-soft);border:1px solid var(--danger);border-radius:11px;padding:13px 15px;font-size:.86rem;}
+.avviso-box{background:var(--warning-soft);border:1px solid var(--warning);border-radius:11px;padding:13px 15px;font-size:.86rem;}
+.avvio-banner{background:var(--teal-soft);border:1px solid var(--teal);color:var(--teal);border-radius:11px;
+  padding:12px 16px;margin-bottom:18px;display:flex;justify-content:space-between;gap:14px;align-items:center;flex-wrap:wrap;font-size:.85rem;font-weight:600;}
+.imp-nav{display:flex;gap:12px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;}
+@media print{.overlay{display:none !important;}}
 </style>
 
 
@@ -302,6 +379,8 @@ footer.hint{margin-top:30px;color:var(--ink-muted);font-size:.78rem;text-align:c
 <body>
 <a href="/logout" title="Esci dall'account" style="position:fixed;top:8px;right:10px;z-index:9999;font-size:12px;color:#8a8f98;text-decoration:none;background:#fff;padding:3px 8px;border-radius:6px;box-shadow:0 1px 2px rgba(0,0,0,.12);">Esci</a>
 <div id="app" lang="it"></div>
+<div id="guida-root"></div>
+<div id="wizard-root"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
@@ -879,8 +958,10 @@ function staScrivendo(){
   if(!el || !el.tagName) return false;
   var tag = el.tagName.toLowerCase();
   if(tag!=="input" && tag!=="select" && tag!=="textarea") return false;
-  var app = document.getElementById("app");
-  return !!(app && app.contains(el));
+  // il percorso guidato e la guida vivono FUORI da #app: senza questo, scrivere nel
+  // percorso non conterebbe come "sta scrivendo" e il polling ridisegnerebbe sotto le dita
+  var contenitori = ["app","wizard-root","guida-root"].map(function(id){ return document.getElementById(id); });
+  return contenitori.some(function(c){ return !!(c && c.contains(el)); });
 }
 function startPolling(){
   clearInterval(pollTimer);
@@ -888,6 +969,10 @@ function startPolling(){
     // niente sostituzioni mentre si sta modificando qualcosa, o con modifiche non ancora
     // salvate, o con un conflitto già aperto in attesa di una scelta
     if(!USE_API || editingEmpId!==null || modifichePendenti || conflitto) return;
+    // con il percorso guidato aperto NON si sostituisce lo stato: i dati del percorso
+    // sono una fotografia di quello di adesso, e al passo successivo li riscriverebbe
+    // sopra la versione arrivata dall'altro computer senza mostrare nessun conflitto
+    if(wizardAperto) return;
     // e nemmeno mentre si sta scrivendo in un campo: molti campi (nome della stagione,
     // ragione sociale, orari) si salvano solo quando si esce dal campo, e un ridisegno
     // in quel momento cancellerebbe quello che si sta digitando
@@ -928,7 +1013,8 @@ function applicaSolaLettura(){
   // renderebbe metà del programma invisibile a chi ha la sola lettura
   var navigazione = ["locale-picker","imp-sezione","week-pick","week-prev","week-next",
                      "assenze-mese-pick","assenze-mese-prev","assenze-mese-next",
-                     "chiusure-mese-pick","chiusure-mese-prev","chiusure-mese-next","btn-vai-consigli"];
+                     "chiusure-mese-pick","chiusure-mese-prev","chiusure-mese-next","btn-vai-consigli",
+                     "btn-apri-guida"];   // la guida non modifica niente: serve anche in sola lettura
   app.querySelectorAll("button, input, select, textarea").forEach(function(el){
     if(el.hasAttribute("data-tab") || navigazione.indexOf(el.id)!==-1) return;
     if(el.hasAttribute("data-consiglio-vai")) return;   // porta solo a guardare, non cambia niente
@@ -950,11 +1036,26 @@ function bootStato(){
     render();
     startPolling();
     if(!res.data){ saveState(); }
+    forseApriBenvenuto();
   }).catch(function(){
     USE_API = false;
     state = loadStateLocal();
     render();
+    forseApriBenvenuto();
   });
+}
+/* Apre il percorso guidato da solo soltanto a chi arriva dal link di attivazione:
+   è l'unico caso in cui siamo sicuri che è la prima volta in assoluto. A tutti gli
+   altri il percorso viene offerto dall'invito in cima alla pagina, perché un modale
+   che si piazza davanti a chi sta già lavorando è un agguato, non un aiuto. */
+function forseApriBenvenuto(){
+  if(soloLettura() || wizardCompletato()) return;
+  var daLink = false;
+  try{ daLink = new URLSearchParams(window.location.search).get("benvenuto")==="1"; }catch(e){}
+  if(!daLink) return;
+  // via il parametro, così un ricaricamento non riapre il percorso a sorpresa
+  try{ window.history.replaceState({}, "", window.location.pathname); }catch(e){}
+  apriWizard(0);
 }
 
 /* ---------- helpers di data/ora ---------- */
@@ -2084,6 +2185,7 @@ function render(){
   app.innerHTML =
     conflittoHtml() +
     heroHtml() +
+    bannerAvvio() +
     tabsHtml() +
     '<div class="tab-panel'+(activeTab==="impostazioni"?" active":"")+'" id="panel-impostazioni">'+renderImpostazioni()+'</div>'+
     '<div class="tab-panel'+(activeTab==="personale"?" active":"")+'" id="panel-personale">'+renderPersonale()+'</div>'+
@@ -2919,6 +3021,15 @@ function renderTurniStandard(s){
   '</div>';
 }
 
+/* Invito al percorso guidato. Sparisce da solo quando la configurazione è stata
+   fatta: un banner che resta per sempre diventa arredamento e non lo legge nessuno. */
+function bannerAvvio(){
+  if(wizardCompletato() || soloLettura()) return "";
+  return '<div class="avvio-banner no-print">'+
+    '<span>Prima volta qui? Il percorso guidato imposta orari, organico e personale in dieci minuti.</span>'+
+    '<span class="btn-row"><button class="btn btn-sm btn-primary" id="btn-apri-wizard">Apri il percorso guidato</button>'+
+    '<button class="btn btn-sm" id="btn-salta-wizard">Ho gi\u00e0 configurato tutto</button></span></div>';
+}
 function renderImpostazioni(){
   var s = state.settings;
   function num(field,label,extra){
@@ -2940,16 +3051,18 @@ function renderImpostazioni(){
   var tetto = tettoGiornaliero(s);
   var turniAttivi = !!(s.turniStandard && s.turniStandard.attivo);
   var nav = '<div class="imp-nav no-print">'+
-    '<label class="field" style="max-width:420px;">Vai a<select id="imp-sezione">'+
+    '<label class="field" style="max-width:420px;flex:1;">Vai a<select id="imp-sezione">'+
       IMP_SEZIONI.map(function(x){ return '<option value="'+x.id+'"'+(impSezione===x.id?" selected":"")+'>'+x.label+'</option>'; }).join("")+
-    '</select></label></div>';
+    '</select></label>'+
+    '<button class="btn" id="btn-apri-guida" title="Guida all\u2019uso, con indice e ricerca">? Guida</button>'+
+    '</div>';
 
   var html = renderValidazione(s) + nav;
 
   /* ===== Personale, regole e priorità ===== */
   if(inSezione("personale")){
     html +=
-    '<div class="card" style="border-color:var(--accent);"><h2>Priorità quando il personale non basta</h2>'+
+    '<div class="card" id="imp-priorita" style="border-color:var(--accent);"><h2>Priorità quando il personale non basta</h2>'+
       '<div class="card-desc">Quando non c’è abbastanza personale per coprire tutti i turni, decidi tu quale reparto proteggere per primo tra cucina, banco e sala, e per ogni giorno e ogni fascia (mattina, pomeriggio e sera) quanto quella fascia va difesa: <strong>alta</strong> = coperta per prima, <strong>media</strong> = subito dopo, <strong>bassa</strong> = il resto, coperto per ultimo.</div>'+
       '<div class="card-desc" style="margin-bottom:6px;">Le tue configurazioni: puoi salvare più impostazioni complete di priorità (per esempio “Estate”, “Inverno”, “Settimana della sagra”) e richiamarle quando servono. Applicarne una sovrascrive ordine dei reparti e priorità di giorno/fascia; resta comunque tutto modificabile dopo.</div>'+
       renderConfigurazioniPriorita(s)+
@@ -2959,7 +3072,7 @@ function renderImpostazioni(){
       renderPrioritaFasceGrid(s)+
     '</div>'+
 
-    '<div class="card"><h2>Ore massime al giorno</h2>'+
+    '<div class="card" id="imp-ore-max"><h2>Ore massime al giorno</h2>'+
       '<div class="card-desc">Limite di ore in una singola giornata. Non blocca la copertura: se l’unica persona disponibile lo supera, il turno viene assegnato lo stesso e segnalato come irregolare (vedi “Regole di tutela”). Resta invece un limite invalicabile quando si allunga un turno per raggiungere le ore di contratto.</div>'+
       '<div class="card-desc"><strong>Lascia 0 (o vuoto) se non vuoi nessun limite:</strong> in quel caso il programma non pone un massimo di ore giornaliere per nessun dipendente e non segnala niente per questo motivo. Restano attive le altre regole di tutela e il monte ore settimanale di ciascun contratto.</div>'+
       '<div class="grid cols-2">'+
@@ -2970,7 +3083,7 @@ function renderImpostazioni(){
         : '<span class="pill pill-success">limite attivo</span> Oltre <strong>'+tetto+' ore</strong> in un giorno il turno resta assegnato ma viene segnalato come irregolare.')+'</div>'+
     '</div>'+
 
-    '<div class="card" style="border-color:var(--accent);"><h2>Come si decide la durata dei turni</h2>'+
+    '<div class="card" id="imp-durata" style="border-color:var(--accent);"><h2>Come si decide la durata dei turni</h2>'+
       '<div class="card-desc">Due modi opposti di ottenere la stessa cosa, e <strong>si escludono a vicenda</strong>: o scrivi tu gli orari dei turni e il programma li usa così come sono, oppure lasci che sia il programma ad allungarli per avvicinare ciascuno alle ore di contratto. Attivandone uno, l’altro si spegne. Se non ne attivi nessuno, gli orari dei turni vengono ricavati dagli orari di apertura, come da sempre.</div>'+
       '<div class="'+(turniAttivi?'opz-scelta':'opz')+'">'+
         '<label class="check"><input type="checkbox" data-setting-turni-standard="1" '+(turniAttivi?"checked":"")+'> <strong>Turni standard</strong> — uso gli orari che scrivo io</label>'+
@@ -2992,14 +3105,14 @@ function renderImpostazioni(){
       '</div>'+
     '</div>'+
 
-    '<div class="card"><h2>Pareggiamento straordinari</h2><div class="card-desc">Il programma ricorda quante ore di straordinario ha fatto ciascun dipendente nelle settimane passate. Quando è attivo, a parità di preferenze e disponibilità il generatore preferisce dare eventuali nuove ore di straordinario a chi ne ha accumulate di meno nella finestra scelta qui sotto (media mobile) — resta comunque una preferenza: se serve a garantire la copertura, lo straordinario viene assegnato comunque a chi è disponibile.</div>'+
+    '<div class="card" id="imp-parita"><h2>Pareggiamento straordinari</h2><div class="card-desc">Il programma ricorda quante ore di straordinario ha fatto ciascun dipendente nelle settimane passate. Quando è attivo, a parità di preferenze e disponibilità il generatore preferisce dare eventuali nuove ore di straordinario a chi ne ha accumulate di meno nella finestra scelta qui sotto (media mobile) — resta comunque una preferenza: se serve a garantire la copertura, lo straordinario viene assegnato comunque a chi è disponibile.</div>'+
       '<label class="check"><input type="checkbox" data-setting-bool="paritaStraordinariEnabled" '+(s.paritaStraordinariEnabled?"checked":"")+'> Prova a pareggiare gli straordinari tra i dipendenti</label>'+
       '<div class="grid cols-2" style="margin-top:12px;">'+
         num("paritaStraordinariFinestra","Finestra di calcolo (numero di settimane precedenti)")+
       '</div>'+
     '</div>'+
 
-    '<div class="card"><h2>Regole di tutela del personale</h2><div class="card-desc">Il programma le calcola e le segnala, ma <strong>non blocca mai la copertura di un turno</strong>: se l’unica persona disponibile infrange una di queste regole, il turno viene comunque assegnato e marcato come irregolare, così puoi decidere tu se accettarlo, spostare qualcuno o chiedere più disponibilità. I valori di default seguono la normativa italiana sull’orario di lavoro.</div>'+
+    '<div class="card" id="imp-tutela"><h2>Regole di tutela del personale</h2><div class="card-desc">Il programma le calcola e le segnala, ma <strong>non blocca mai la copertura di un turno</strong>: se l’unica persona disponibile infrange una di queste regole, il turno viene comunque assegnato e marcato come irregolare, così puoi decidere tu se accettarlo, spostare qualcuno o chiedere più disponibilità. I valori di default seguono la normativa italiana sull’orario di lavoro.</div>'+
       '<label class="check"><input type="checkbox" data-regola-attiva="riposoGiornaliero" '+(s.regoleTutela.riposoGiornaliero.attiva?"checked":"")+'> Riposo minimo tra la fine di un turno e l’inizio del successivo</label>'+
       '<div class="grid cols-2" style="margin:8px 0 16px;"><label class="field">Ore di riposo<input type="number" min="0" max="24" data-regola-valore="riposoGiornaliero|ore" value="'+s.regoleTutela.riposoGiornaliero.ore+'"></label></div>'+
       '<label class="check"><input type="checkbox" data-regola-attiva="riposoSettimanale" '+(s.regoleTutela.riposoSettimanale.attiva?"checked":"")+'> Riposo settimanale continuativo</label>'+
@@ -3011,7 +3124,7 @@ function renderImpostazioni(){
         : 'Il limite di ore giornaliere ('+tetto+' h) viene trattato allo stesso modo: superato, il turno resta assegnato ma segnalato.')+'</div>'+
     '</div>'+
 
-    '<div class="card"><h2>Turni spezzati</h2>'+
+    '<div class="card" id="imp-spezzati"><h2>Turni spezzati</h2>'+
       '<div class="card-desc">Un turno spezzato è quando la stessa persona lavora due volte nello stesso giorno, con una pausa in mezzo (per esempio pranzo e cena). Il programma non lo fa mai di sua iniziativa: <strong>si decide persona per persona</strong>, con la spunta “Può fare turni spezzati” nella scheda di ciascun dipendente.</div>'+
       '<div class="card-desc" style="margin-bottom:0;">Oggi '+(function(){
         var conSpezzati = state.employees.filter(function(e){ return e.spezzatiOk; });
@@ -3025,18 +3138,18 @@ function renderImpostazioni(){
   /* ===== Orari, organico e cucina ===== */
   if(inSezione("orari")){
     html +=
-    '<div class="card"><h2>Orari di apertura al pubblico</h2><div class="card-desc">Orari di sala/banco per ogni giorno della settimana. Puoi configurare fino a 2 aperture al giorno (es. lun 8–16 e 19–23) per gestire i turni spezzati. Se il locale ha un <strong>giorno di chiusura fisso</strong> (il classico riposo settimanale) spunta “Chiuso tutto il giorno”: quel giorno non verrà generato nessun turno, ogni settimana. La cucina ha orari propri nella card “Cucina” qui sotto.</div>'+
+    '<div class="card" id="imp-orari"><h2>Orari di apertura al pubblico</h2><div class="card-desc">Orari di sala/banco per ogni giorno della settimana. Puoi configurare fino a 2 aperture al giorno (es. lun 8–16 e 19–23) per gestire i turni spezzati. Se il locale ha un <strong>giorno di chiusura fisso</strong> (il classico riposo settimanale) spunta “Chiuso tutto il giorno”: quel giorno non verrà generato nessun turno, ogni settimana. La cucina ha orari propri nella card “Cucina” qui sotto.</div>'+
       '<div class="btn-row" style="margin-bottom:10px;"><button class="btn btn-sm" id="btn-copia-orari-lunedi">Copia il lunedì su tutti gli altri giorni</button></div>'+
       renderOrariGiorniEditor(s)+
     '</div>'+
 
-    '<div class="card" style="border-color:var(--accent);"><h2>Organico ideale</h2>'+
+    '<div class="card" id="imp-organico" style="border-color:var(--accent);"><h2>Organico ideale</h2>'+
       '<div class="card-desc">Quante persone servono in <strong>cucina</strong>, al <strong>banco</strong> e in <strong>sala</strong>, per ogni giorno della settimana e per ogni fascia. È questa tabella che decide quanti turni il programma crea: quello che scrivi qui è quello che proverà a coprire. Un giorno di chiusura non genera turni, qualunque numero ci sia scritto.</div>'+
       '<div class="card-desc">La cucina compare solo sul pranzo e sulla cena: il pomeriggio fa parte del turno di pranzo, e per avere un cuoco la sera servono la seconda apertura e “la cucina segue le fasce”. Con più di un cuoco il programma assegna prima il capo, poi la riserva; i giorni speciali e le loro deroghe di organico continuano a vincere su questa tabella.</div>'+
       renderOrganico(s)+
     '</div>'+
 
-    '<div class="card"><h2>Giorni di massima affluenza</h2><div class="card-desc">Una scorciatoia per riempire in un colpo l’organico dei giorni più pieni. Scegli i giorni, scrivi quante persone servono e premi “Applica”: i valori finiscono nella tabella “Organico ideale”, dove restano modificabili cella per cella. Non c’è nessun numero nascosto: dopo l’applicazione la tabella è l’unica cosa che conta.</div>'+
+    '<div class="card" id="imp-picco"><h2>Giorni di massima affluenza</h2><div class="card-desc">Una scorciatoia per riempire in un colpo l’organico dei giorni più pieni. Scegli i giorni, scrivi quante persone servono e premi “Applica”: i valori finiscono nella tabella “Organico ideale”, dove restano modificabili cella per cella. Non c’è nessun numero nascosto: dopo l’applicazione la tabella è l’unica cosa che conta.</div>'+
       '<div class="grid cols-3">'+
         '<label class="field">Cucina — mattina di picco<input type="number" min="0" max="20" id="picco-cucina" value="'+(Math.max(0,Number(s.organico[DAYS[0]].mattina.cucina)||0))+'"></label>'+
         '<label class="field">Banco — mattina di picco<input type="number" min="0" max="20" id="picco-banco" value="'+(Math.max(0,Number(s.organico[DAYS[0]].mattina.banco)||0))+'"></label>'+
@@ -3046,7 +3159,7 @@ function renderImpostazioni(){
       '<div class="btn-row" style="margin-top:12px;"><button class="btn btn-sm btn-primary" id="btn-applica-picco">Applica ai giorni selezionati</button></div>'+
     '</div>'+
 
-    '<div class="card"><h2>Cucina</h2><div class="card-desc">Il capo e la riserva si alternano (la riserva copre soprattutto i giorni liberi del capo); quando servono più cuochi nello stesso servizio, il programma parte dal capo e poi prende chi è disponibile. La cucina chiude circa mezz’ora prima della fine turno del cuoco. Il <em>numero</em> di cuochi si imposta in “Organico ideale”.</div>'+
+    '<div class="card" id="imp-cucina"><h2>Cucina</h2><div class="card-desc">Il capo e la riserva si alternano (la riserva copre soprattutto i giorni liberi del capo); quando servono più cuochi nello stesso servizio, il programma parte dal capo e poi prende chi è disponibile. La cucina chiude circa mezz’ora prima della fine turno del cuoco. Il <em>numero</em> di cuochi si imposta in “Organico ideale”.</div>'+
       '<label class="check"><input type="checkbox" data-setting-bool="cucinaSegueFasce" '+(s.cucinaSegueFasce?"checked":"")+'> La cucina segue le fasce orarie del locale (turno pranzo e turno cena separati, con cuoco eventualmente diverso)</label>'+
       (s.cucinaSegueFasce ? (
         '<div class="grid cols-1" style="margin-top:14px;max-width:320px;">'+
@@ -3064,7 +3177,7 @@ function renderImpostazioni(){
       ))+
     '</div>'+
 
-    '<div class="card"><h2>Orari di ingresso di banco e sala</h2><div class="card-desc">Il banco è presente prima dell’apertura per preparare sala e cucina; il/la cameriere/a arriva più tardi. Il cambio turno e la chiusura si configurano per ogni giorno in “Orari di apertura al pubblico”; <em>quante</em> persone servono si imposta in “Organico ideale”.</div>'+
+    '<div class="card" id="imp-ingressi"><h2>Orari di ingresso di banco e sala</h2><div class="card-desc">Il banco è presente prima dell’apertura per preparare sala e cucina; il/la cameriere/a arriva più tardi. Il cambio turno e la chiusura si configurano per ogni giorno in “Orari di apertura al pubblico”; <em>quante</em> persone servono si imposta in “Organico ideale”.</div>'+
       (turniAttivi
         ? '<div class="card-desc" style="margin-bottom:0;"><span class="pill" style="background:var(--surface-2);color:var(--ink-muted);">non in uso</span> Hai attivato i <strong>turni standard</strong>: gli orari di ingresso li decidi lì, turno per turno. Questi due campi non vengono letti finché i turni standard restano accesi.</div>'
         : '<div class="grid cols-2">'+
@@ -3077,16 +3190,16 @@ function renderImpostazioni(){
   /* ===== Stagioni, chiusure e giorni speciali ===== */
   if(inSezione("calendario")){
     html +=
-    '<div class="card"><h2>Stagioni</h2><div class="card-desc">Un intervallo di date che ogni anno sostituisce gli orari standard: sul lago l’estate e l’inverno non sono lo stesso locale. Si scrive giorno e mese (per esempio <span class="mono">06-01</span> → <span class="mono">09-15</span>); un intervallo può anche scavalcare il capodanno. Vale per tutti gli anni, non va rifatto ogni stagione — e ogni stagione può avere i suoi giorni di chiusura.</div>'+
+    '<div class="card" id="imp-stagioni"><h2>Stagioni</h2><div class="card-desc">Un intervallo di date che ogni anno sostituisce gli orari standard: sul lago l’estate e l’inverno non sono lo stesso locale. Si scrive giorno e mese (per esempio <span class="mono">06-01</span> → <span class="mono">09-15</span>); un intervallo può anche scavalcare il capodanno. Vale per tutti gli anni, non va rifatto ogni stagione — e ogni stagione può avere i suoi giorni di chiusura.</div>'+
       renderStagioni(s)+
     '</div>'+
 
-    '<div class="card" style="border-color:var(--accent);"><h2>Calendario delle chiusure</h2>'+
+    '<div class="card" id="imp-chiusure" style="border-color:var(--accent);"><h2>Calendario delle chiusure</h2>'+
       '<div class="card-desc">Le chiusure di routine (il riposo settimanale) si impostano in “Orari di apertura al pubblico” e qui si vedono in grigio. Questo calendario serve per le <strong>chiusure straordinarie</strong>: ferie, lavori, un ponte. Clicca un giorno per chiuderlo, riclicca per riaprirlo. Nei giorni chiusi non viene generato nessun turno e la scheda Assenze li mostra sbarrati, così nessuno ci segna sopra delle ferie per sbaglio.</div>'+
       renderCalendarioChiusure(s)+
     '</div>'+
 
-    '<div class="card"><h2>Giorni speciali</h2><div class="card-desc">Singole date che cambiano orari o organico: Ferragosto, il 31 dicembre, la sagra del paese. Una data speciale batte sia gli orari standard sia la stagione. Le chiusure si gestiscono più comodamente dal calendario qui sopra, ma compaiono anche in questo elenco.</div>'+
+    '<div class="card" id="imp-speciali"><h2>Giorni speciali</h2><div class="card-desc">Singole date che cambiano orari o organico: Ferragosto, il 31 dicembre, la sagra del paese. Una data speciale batte sia gli orari standard sia la stagione. Le chiusure si gestiscono più comodamente dal calendario qui sopra, ma compaiono anche in questo elenco.</div>'+
       renderDeroghe(s)+
     '</div>';
   }
@@ -3094,11 +3207,11 @@ function renderImpostazioni(){
   /* ===== Azienda, backup e ripristino ===== */
   if(inSezione("azienda")){
     html +=
-    '<div class="card"><h2>La tua azienda</h2><div class="card-desc">Chi sei, dove sei e con che logo ti presenti. Il luogo non serve solo all’anagrafica: è quello che permette al programma di proporti i giorni di massima affluenza del tuo territorio.</div>'+
+    '<div class="card" id="imp-azienda"><h2>La tua azienda</h2><div class="card-desc">Chi sei, dove sei e con che logo ti presenti. Il luogo non serve solo all’anagrafica: è quello che permette al programma di proporti i giorni di massima affluenza del tuo territorio.</div>'+
       renderAzienda(s)+
     '</div>'+
 
-    '<div class="card"><h2>Backup dati</h2><div class="card-desc">Tutto è salvato solo nel browser di questo computer. Esporta un backup prima di svuotare la cache o per portare i dati su un altro computer.</div>'+
+    '<div class="card" id="imp-backup"><h2>Backup dati</h2><div class="card-desc">Tutto è salvato solo nel browser di questo computer. Esporta un backup prima di svuotare la cache o per portare i dati su un altro computer.</div>'+
       '<div class="btn-row"><button class="btn" id="btn-export">Esporta dati</button><button class="btn" id="btn-import-toggle">Importa dati</button></div>'+
       '<div id="export-box" style="display:none;margin-top:14px;">'+
         '<label class="field">Copia questo testo e conservalo (es. in un file di testo)'+
@@ -4279,6 +4392,13 @@ function caricaLogo(file){
 }
 
 function wireEvents(){
+  var apriG = document.getElementById("btn-apri-guida");
+  if(apriG) apriG.addEventListener("click", function(){ apriGuida(); });
+  var apriW = document.getElementById("btn-apri-wizard");
+  if(apriW) apriW.addEventListener("click", function(){ apriWizard(0); });
+  var saltaW = document.getElementById("btn-salta-wizard");
+  if(saltaW) saltaW.addEventListener("click", function(){ segnaOnboarding(true); saveState(); render(); });
+
   document.querySelectorAll("[data-tab]").forEach(function(b){
     b.addEventListener("click", function(){ activeTab = b.getAttribute("data-tab"); editingEmpId=null; render(); });
   });
@@ -5386,6 +5506,993 @@ function recomputeHours(wk, employeesOverride){
   Object.keys(pianificate).forEach(function(k){ pianificate[k] = Math.round(pianificate[k]*100)/100; });
   wk.hoursWorked = hoursWorked;
   wk.orePianificate = pianificate;
+}
+
+/* ==========================================================================
+   GUIDA INTERROGABILE
+   Una voce = un oggetto in GUIDA. Per aggiornare la guida dopo un cambiamento al
+   programma si modifica la voce che parla di quella cosa e si aggiorna
+   GUIDA_AGGIORNATA: non c'è nient'altro da toccare, né indice né ricerca, che si
+   costruiscono da qui. "vaiA" porta l'utente sull'impostazione di cui si parla,
+   perché una guida che spiega dove NON si può cliccare è mezza guida.
+   ========================================================================== */
+var GUIDA_AGGIORNATA = "28 settembre 2026";
+var GUIDA = [
+/* ---------- primi passi ---------- */
+{id:"cosa-fa", gruppo:"Primi passi", titolo:"Cosa fa questo programma",
+ chiavi:"introduzione panoramica a cosa serve turni automatici copertura",
+ corpo:[
+ "<p>Il programma costruisce i turni di una settimana partendo da tre cose che gli dai tu: <b>quando sei aperto</b>, <b>quante persone ti servono</b> in cucina, al banco e in sala, e <b>chi hai a disposizione</b> con le sue ore di contratto e i giorni in cui può lavorare.</p>",
+ "<p>Da lì in poi lavora in automatico: riempie ogni postazione con la persona più adatta, tiene il conto delle ore di ciascuno, e quando non ci arriva <b>non si inventa niente</b>: lascia il buco in evidenza e ti propone sotto al planner delle soluzioni concrete da accettare o rifiutare.</p>",
+ "<div class=\"formula\">Nessun turno viene generato di nascosto e nessun numero è nascosto: tutto quello che il programma decide lo puoi cambiare a mano, e ogni modifica a mano ti dice subito se crea un problema.</div>"
+]},
+{id:"ordine-config", gruppo:"Primi passi", titolo:"In che ordine configurare (10 minuti)",
+ chiavi:"primo avvio configurazione iniziale ordine passi setup percorso guidato",
+ vaiA:{sezione:"orari", selettore:"#imp-orari"},
+ corpo:[
+ "<p>Vale la pena seguire questo ordine: ogni passo dà senso al successivo.</p>",
+ "<ul>",
+ "<li><b>1. Orari di apertura al pubblico</b> — i giorni e le ore in cui sei aperto, e il giorno di riposo fisso se ce l'hai. Tutto il resto si appoggia qui.</li>",
+ "<li><b>2. Organico ideale</b> — quante persone servono per giorno e per fascia. È la tabella che comanda davvero la generazione.</li>",
+ "<li><b>3. Personale</b> — nomi, ruoli, ore di contratto, disponibilità.</li>",
+ "<li><b>4. Cucina</b> — orari del cuoco, che sono diversi da quelli di sala.</li>",
+ "<li><b>5. Genera la prima settimana</b> e guarda cosa esce. Solo adesso conviene mettere mano alle priorità, alle stagioni e ai giorni speciali: li regoli su un risultato vero, non a occhio.</li>",
+ "</ul>",
+ "<div class=\"attenzione\">Se hai appena ricevuto l'accesso, il percorso guidato ti fa fare i punti 1–3 in fila. Lo trovi in cima alle Impostazioni finché la configurazione non è completa.</div>"
+]},
+{id:"dati-esempio", gruppo:"Primi passi", titolo:"I dati di esempio e come toglierli",
+ chiavi:"demo esempio precaricato svuotare cancellare dipendenti finti prova",
+ vaiA:{tab:"personale"},
+ corpo:[
+ "<p>Al primo accesso trovi nove dipendenti di esempio e gli orari di un bar con cucina. Servono a farti vedere subito un planner pieno, invece di una griglia vuota che non spiega niente.</p>",
+ "<p>Non sono dati tuoi e non devono restare: nel percorso guidato scegli <b>“parto dai miei dati”</b> e vengono tolti tutti in un colpo. In alternativa li cancelli uno per uno dalla scheda <b>Personale</b>.</p>",
+ "<div class=\"attenzione\">Finché ci sono dipendenti di esempio, le ore e i buchi che vedi nel planner non vogliono dire niente sulla tua attività.</div>"
+]},
+
+/* ---------- impostazioni ---------- */
+{id:"orari-apertura", gruppo:"Le impostazioni", titolo:"Orari di apertura al pubblico",
+ chiavi:"apertura chiusura orari giorno riposo settimanale doppia apertura pranzo cena punto medio fascia",
+ vaiA:{sezione:"orari", selettore:"#imp-orari"},
+ corpo:[
+ "<p>Per ogni giorno della settimana imposti fino a <b>due aperture</b>. Una sola apertura è l'orario continuato (il bar che sta aperto 8–21); due aperture sono il classico pranzo e cena (12–15 e 19–23).</p>",
+ "<p>Dentro la prima apertura c'è il <b>punto medio</b>: è l'ora in cui cambia il turno, e divide la giornata nelle due fasce <b>mattina</b> e <b>pomeriggio</b>. La seconda apertura è la fascia <b>sera</b>.</p>",
+ "<ul>",
+ "<li><b>Chiuso tutto il giorno</b> è il riposo settimanale fisso: quel giorno non viene generato nessun turno, nessuna settimana.</li>",
+ "<li>Se un orario di fine è <b>più piccolo</b> di quello di inizio (23:00 → 02:00) il programma capisce che si va oltre la mezzanotte e conta le ore giuste.</li>",
+ "</ul>",
+ "<div class=\"formula\">Tre fasce, sempre le stesse in tutto il programma: <b>mattina</b> = dall'apertura al punto medio · <b>pomeriggio</b> = dal punto medio alla chiusura della prima apertura · <b>sera</b> = la seconda apertura.</div>"
+]},
+{id:"organico", gruppo:"Le impostazioni", titolo:"Organico ideale — la tabella che comanda",
+ chiavi:"organico quante persone servono cuochi banco sala numero postazioni fabbisogno",
+ vaiA:{sezione:"orari", selettore:"#imp-organico"},
+ corpo:[
+ "<p>Una cella per ogni incrocio di <b>giorno</b>, <b>fascia</b> e <b>reparto</b>: quante persone vuoi lì. Questa tabella è l'unica cosa che decide quante postazioni il programma prova a riempire.</p>",
+ "<ul>",
+ "<li><b>0</b> significa “qui non serve nessuno”: nessuna postazione, nessun buco segnalato.</li>",
+ "<li>La <b>cucina</b> compare su pranzo e cena, non sul pomeriggio: il pomeriggio fa parte del turno di pranzo. Per avere un cuoco la sera servono la seconda apertura e l'opzione “la cucina segue le fasce”.</li>",
+ "<li>La card <b>Giorni di massima affluenza</b> è solo una scorciatoia per riempire più celle in un colpo. Dopo averla applicata, conta solo la tabella.</li>",
+ "</ul>",
+ "<div class=\"attenzione\">Se metti numeri più alti del personale che hai, il planner si riempirà di buchi. Non è un errore del programma: è la fotografia di quanta gente ti manca, ed è esattamente l'informazione che serve per decidere.</div>"
+]},
+{id:"cucina", gruppo:"Le impostazioni", titolo:"Cucina: capo, riserva e orari propri",
+ chiavi:"cuoco capo riserva cucina orari chiusura cucina mezz'ora prima fasce",
+ vaiA:{sezione:"orari", selettore:"#imp-cucina"},
+ corpo:[
+ "<p>La cucina ha orari suoi, di solito più mattinieri della sala: il cuoco entra prima per preparare. Qui imposti l'ora di ingresso e l'ora di fine turno, distinte per <b>capo</b> e <b>riserva</b>.</p>",
+ "<ul>",
+ "<li>Il <b>capo</b> è la prima scelta di ogni servizio. La <b>riserva</b> copre soprattutto i giorni in cui il capo è libero o assente.</li>",
+ "<li>Se ti serve più di un cuoco per servizio, il numero si imposta in <b>Organico ideale</b>, non qui.</li>",
+ "<li>La cucina al pubblico chiude circa mezz'ora prima della fine turno del cuoco: quella mezz'ora serve a chiudere la postazione.</li>",
+ "</ul>"
+]},
+{id:"durata-turni", gruppo:"Le impostazioni", titolo:"Come si decide la durata dei turni",
+ chiavi:"turni standard orari fissi allungamento anticipo ingresso monte ore accavallare sovrapporre esclusive",
+ vaiA:{sezione:"personale", selettore:"#imp-durata"},
+ corpo:[
+ "<p>Due modi opposti di far quadrare le ore, e <b>si escludono a vicenda</b>: puoi tenerne acceso uno solo, o nessuno.</p>",
+ "<ul>",
+ "<li><b>Turni standard</b>: scrivi tu gli orari (“mattina 06:00–14:00”, “sera 18:00–23:00”) e il programma usa sempre quelli. Turni prevedibili, uguali ogni settimana, facili da leggere per il personale. Il prezzo è che le ore di contratto quadrano meno spesso al minuto.</li>",
+ "<li><b>Allungamento per contratto</b>: il programma <b>anticipa l'ingresso</b> di chi è sotto le proprie ore, anche su una fascia dove c'è già qualcuno. Le ore quadrano meglio, ma gli orari cambiano di settimana in settimana e due persone possono sovrapporsi per un pezzo di turno.</li>",
+ "</ul>",
+ "<div class=\"formula\">Scegli <b>Turni standard</b> se il tuo personale ha bisogno di orari sempre uguali. Scegli <b>Allungamento</b> se la priorità è arrivare alle ore di contratto di tutti.</div>"
+]},
+{id:"priorita", gruppo:"Le impostazioni", titolo:"Priorità quando il personale non basta",
+ chiavi:"priorita reparto proteggere alta media bassa ordine cucina banco sala configurazioni salvate stagionalita",
+ vaiA:{sezione:"personale", selettore:"#imp-priorita"},
+ corpo:[
+ "<p>Quando le persone non bastano per tutto, qualcosa resta scoperto. Questa card decide <b>cosa</b>.</p>",
+ "<ul>",
+ "<li><b>Ordine dei reparti</b>: il primo viene riempito per primo, l'ultimo è quello che accetti di lasciare scoperto.</li>",
+ "<li><b>Livello per giorno e fascia</b>: <b>alta</b> = coperta per prima, <b>media</b> = subito dopo, <b>bassa</b> = per ultima. La fascia <i>sera</i> si imposta sempre, anche sui giorni che oggi non hanno la seconda apertura: se la aggiungi, la priorità è già quella giusta.</li>",
+ "<li><b>Le tue configurazioni</b>: salvi l'intero assetto con un nome (“Estate”, “Inverno”, “Settimana della sagra”) e lo richiami quando serve. Applicarne una sovrascrive ordine e livelli, che restano comunque modificabili dopo.</li>",
+ "</ul>",
+ "<div class=\"formula\">La coda di lavoro si costruisce così: prima tutte le fasce ad alta priorità, dentro ognuna i reparti nell'ordine che hai scelto; poi le medie; poi le basse.</div>"
+]},
+{id:"tutela", gruppo:"Le impostazioni", titolo:"Regole di tutela (e perché non bloccano mai)",
+ chiavi:"riposo giornaliero 11 ore riposo settimanale giorni consecutivi irregolare legge normativa",
+ vaiA:{sezione:"personale", selettore:"#imp-tutela"},
+ corpo:[
+ "<p>Sono quattro: <b>riposo tra due turni</b>, <b>riposo settimanale</b>, <b>massimo di giorni consecutivi</b> e <b>ore massime al giorno</b>. I valori di partenza seguono la normativa italiana sull'orario di lavoro.</p>",
+ "<p>Sono regole <b>morbide</b>: il programma le rispetta finché ha alternative, ma se l'unica persona disponibile le infrange <b>copre il turno lo stesso</b> e lo marca come irregolare. Il servizio non si ferma, e tu vedi esattamente quali turni guardare.</p>",
+ "<div class=\"formula\">Regole <b>dure</b>, che il programma non viola mai: ruolo sbagliato, disponibilità non data, ferie/malattia/ROL, contratto terminato, due postazioni nello stesso momento, monte ore settimanale superato.</div>"
+]},
+{id:"ore-max", gruppo:"Le impostazioni", titolo:"Ore massime al giorno",
+ chiavi:"ore massime giornaliere tetto limite giornata vuoto zero nessun limite",
+ vaiA:{sezione:"personale", selettore:"#imp-ore-max"},
+ corpo:[
+ "<p>Il limite di ore che una persona può fare in una singola giornata.</p>",
+ "<div class=\"formula\">Se lasci <b>0</b> o il campo <b>vuoto</b>, il programma dà per scontato che <b>non ci sia nessun massimo giornaliero</b> per nessun dipendente, e non segnala più niente su questo fronte.</div>",
+ "<p>Quando il limite c'è, vale come regola di tutela: viene segnalato, non impedisce la copertura.</p>"
+]},
+{id:"parita", gruppo:"Le impostazioni", titolo:"Pareggiamento degli straordinari",
+ chiavi:"straordinari parita equita media mobile finestra settimane distribuzione",
+ vaiA:{sezione:"personale", selettore:"#imp-parita"},
+ corpo:[
+ "<p>Il programma ricorda quanto straordinario ha fatto ciascuno nelle settimane passate. Con il pareggiamento attivo, a parità di tutto il resto le nuove ore di straordinario vanno a chi <b>ne ha accumulate di meno</b> nella finestra di settimane che scegli.</p>",
+ "<div class=\"attenzione\">Resta una preferenza, non un divieto: se serve a coprire un turno, lo straordinario viene dato comunque a chi è disponibile.</div>"
+]},
+{id:"spezzati", gruppo:"Le impostazioni", titolo:"Turni spezzati",
+ chiavi:"spezzato doppio turno pranzo e cena stessa persona pausa in mezzo",
+ vaiA:{sezione:"personale", selettore:"#imp-spezzati"},
+ corpo:[
+ "<p>Turno spezzato = la stessa persona lavora due volte nello stesso giorno, con una pausa in mezzo. Il programma non lo usa mai <b>di sua iniziativa</b> su chi non lo ha accettato.</p>",
+ "<p>L'impostazione qui è solo il <b>valore di partenza</b> per i nuovi dipendenti: quello che conta è la spunta sulla scheda di ciascuno.</p>"
+]},
+{id:"stagioni", gruppo:"Calendario", titolo:"Stagioni",
+ chiavi:"stagione estate inverno intervallo date orari diversi periodo alta bassa stagione",
+ vaiA:{sezione:"calendario", selettore:"#imp-stagioni"},
+ corpo:[
+ "<p>Una stagione è un <b>intervallo di date che torna ogni anno</b> (1 giugno – 15 settembre) con orari suoi, che sostituiscono quelli standard per tutto il periodo. Serve a chi d'estate apre la sera e d'inverno no.</p>",
+ "<p>Gli orari della stagione si vedono e si modificano dentro la stagione stessa: non devi andare a cambiare gli orari standard e poi rimetterli a posto a settembre.</p>",
+ "<div class=\"formula\">Ordine di precedenza, dal più debole al più forte: <b>orari standard</b> → <b>stagione</b> → <b>giorno speciale</b> o <b>chiusura</b> su una data precisa. Vince sempre il più specifico.</div>"
+]},
+{id:"chiusure", gruppo:"Calendario", titolo:"Chiusure: di routine e straordinarie",
+ chiavi:"chiusura ferie agosto calendario giorni chiusi aperture straordinarie riposo",
+ vaiA:{sezione:"calendario", selettore:"#imp-chiusure"},
+ corpo:[
+ "<p>Due cose diverse:</p>",
+ "<ul>",
+ "<li>La <b>chiusura di routine</b> è il riposo settimanale e si imposta in “Orari di apertura al pubblico”: vale ogni settimana.</li>",
+ "<li>Le <b>chiusure straordinarie</b> sono date singole (le due settimane di ferie, il giorno della sagra in cui stai chiuso) e si segnano cliccando la data sul calendario. Sullo stesso calendario puoi anche <b>aprire</b> un giorno normalmente chiuso.</li>",
+ "</ul>",
+ "<div class=\"formula\">Un giorno chiuso non genera turni, si vede come chiuso anche nelle Assenze, e <b>non scala ore dal contratto</b>: chi non avrebbe lavorato comunque non deve perdere ore.</div>"
+]},
+{id:"speciali", gruppo:"Calendario", titolo:"Giorni speciali ed eventi locali",
+ chiavi:"giorni speciali ferragosto capodanno sagra evento festa nazionale deroga data singola",
+ vaiA:{sezione:"calendario", selettore:"#imp-speciali"},
+ corpo:[
+ "<p>Un giorno speciale è una <b>data singola</b> con orari o organico diversi dal solito: Ferragosto, il 31 dicembre, la sera della sagra.</p>",
+ "<p>Il programma ti propone le <b>feste nazionali</b> dei prossimi mesi e, se hai scritto comune e provincia nella card “La tua azienda”, anche gli <b>eventi locali ricorrenti</b> che conosce per la tua zona. Sono proposte: le aggiungi con un clic o le ignori.</p>"
+]},
+{id:"azienda", gruppo:"Calendario", titolo:"La tua azienda, logo e backup",
+ chiavi:"azienda ragione sociale partita iva pec sdi logo indirizzo comune backup esporta importa",
+ vaiA:{sezione:"azienda", selettore:"#imp-azienda"},
+ corpo:[
+ "<p>Ragione sociale, partita IVA, PEC, indirizzo e logo. Il <b>logo</b> compare in alto a sinistra e sulle stampe del planner. Il <b>comune</b> serve anche a proporti gli eventi locali.</p>",
+ "<p>Più sotto, <b>Backup dati</b>: “Esporta” salva un file con tutto (impostazioni, personale, settimane generate), “Importa” lo rimette. Fai un backup prima di ogni cambiamento grosso — è l'unico modo di tornare indietro.</p>"
+]},
+
+/* ---------- personale ---------- */
+{id:"pers-ruoli", gruppo:"Il personale", titolo:"Ruoli: cosa può coprire una persona",
+ chiavi:"ruoli cuoco capo riserva banco sala jolly polivalente chi copre cosa",
+ vaiA:{tab:"personale"},
+ corpo:[
+ "<p>Quattro caselle per persona: <b>cuoco capo</b>, <b>cuoco riserva</b>, <b>banco</b>, <b>sala</b>. Puoi spuntarne quante vuoi: chi fa banco e sala è un jolly e il programma lo userà dove serve di più.</p>",
+ "<div class=\"attenzione\">Il ruolo è una regola <b>dura</b>: nessuno viene mai messo su una postazione per cui non ha la spunta, nemmeno per salvare la copertura. Se un turno resta vuoto, la prima cosa da controllare è quante persone hanno davvero quel ruolo.</div>"
+]},
+{id:"pers-ore", gruppo:"Il personale", titolo:"Ore di contratto e straordinario",
+ chiavi:"ore contratto settimanali straordinario monte ore tetto giorni lavorativi part time full time",
+ vaiA:{tab:"personale"},
+ corpo:[
+ "<p><b>Ore di contratto</b>: le ore settimanali che la persona deve fare. È l'obiettivo che il programma cerca di centrare.</p>",
+ "<p><b>Straordinario</b>: quante ore <b>oltre</b> il contratto quella persona accetta di fare. È un tetto, non un obiettivo: il programma le usa solo se servono.</p>",
+ "<p><b>Giorni lavorativi</b>: su quanti giorni sono distribuite le ore di contratto. Serve a calcolare quanto vale un giorno di ferie.</p>",
+ "<div class=\"formula\">Massimo settimanale invalicabile = <b>ore di contratto + straordinario</b>. Oltre quel numero il programma non assegna nulla: preferisce lasciare il turno scoperto e dirtelo.</div>"
+]},
+{id:"pers-disp", gruppo:"Il personale", titolo:"Disponibilità e turno preferito",
+ chiavi:"disponibilita giorni fasce quando puo lavorare turno preferito mattina pomeriggio sera indifferente",
+ vaiA:{tab:"personale"},
+ corpo:[
+ "<p>La griglia della <b>disponibilità</b> dice, giorno per giorno e fascia per fascia, quando quella persona <b>può</b> lavorare. È una regola dura: fuori da lì non viene mai messa.</p>",
+ "<p>Il <b>turno preferito</b> invece è una preferenza: a parità di condizioni il programma la rispetta, ma se serve assegna comunque un'altra fascia in cui la persona è disponibile.</p>",
+ "<div class=\"attenzione\">Il buco più frequente nel planner nasce da una disponibilità spuntata al contrario. Prima di alzare l'organico, controlla la griglia.</div>"
+]},
+{id:"pers-contratto", gruppo:"Il personale", titolo:"Tipo di contratto, fine contratto e assenze",
+ chiavi:"contratto fisso a chiamata stagionale fine contratto scadenza ferie malattia rol assenze",
+ vaiA:{tab:"assenze"},
+ corpo:[
+ "<p><b>Fisso</b>: ore di contratto da rispettare. <b>A chiamata</b>: il programma lo usa solo dopo aver esaurito i fissi, e se non gli hai messo ore di contratto non ha nessun tetto.</p>",
+ "<p><b>Fine contratto dal…</b>: da quella data la persona non viene più assegnata. I turni già generati prima restano dove sono.</p>",
+ "<p>Le <b>assenze</b> si segnano dalla scheda Assenze, per data: <b>ferie</b> e <b>malattia</b> sono giornate intere, il <b>ROL</b> è un numero di ore.</p>"
+]},
+
+/* ---------- i calcoli ---------- */
+{id:"calc-ore", gruppo:"Come calcola", titolo:"Come vengono contate le ore",
+ chiavi:"calcolo ore contate obiettivo settimanale ferie scalate rol quota giornaliera consuntivo effettive",
+ corpo:[
+ "<p>Ogni turno vale la sua durata reale: dall'ora di ingresso a quella di uscita. Se l'uscita è oltre la mezzanotte, le ore contano sul giorno in cui il turno è iniziato.</p>",
+ "<div class=\"formula\"><b>Obiettivo della settimana</b> = ore di contratto − (giorni di ferie o malattia × quota giornaliera) − ore di ROL<br>dove <b>quota giornaliera</b> = ore di contratto ÷ giorni lavorativi.</div>",
+ "<p>Un esempio: 40 ore su 5 giorni fanno 8 ore al giorno. Con un giorno di ferie, l'obiettivo di quella settimana diventa 32 ore, non 40: il programma non prova a recuperarle sugli altri giorni.</p>",
+ "<div class=\"formula\"><b>Tetto invalicabile</b> = obiettivo della settimana + straordinario accettato.</div>",
+ "<p>Nel <b>consuntivo</b> puoi correggere le ore realmente fatte: da quel momento sono quelle a contare nei totali, non quelle pianificate.</p>"
+]},
+{id:"calc-ordine", gruppo:"Come calcola", titolo:"In che ordine riempie i turni",
+ chiavi:"ordine generazione coda lavoro quali turni prima priorita fasce reparti",
+ corpo:[
+ "<p>Prima di assegnare qualcuno, il programma costruisce la lista di tutte le postazioni da riempire e la <b>mette in ordine</b>. L'ordine conta: chi arriva prima nella lista ha più persone tra cui scegliere.</p>",
+ "<div class=\"formula\">1. Tutte le fasce a priorità <b>alta</b>, e dentro ognuna i reparti nell'ordine che hai scelto.<br>2. Poi le fasce a priorità <b>media</b>.<br>3. Poi le <b>basse</b>. Nell'ultimo gruppo, il reparto che hai messo per ultimo è quello che il programma accetta di lasciare scoperto senza allarmarsi.</div>",
+ "<p>I giorni chiusi non entrano nella lista. Le celle di organico a 0 nemmeno.</p>"
+]},
+{id:"calc-scelta", gruppo:"Come calcola", titolo:"Come sceglie chi mettere in un turno",
+ chiavi:"come sceglie persona candidati punteggio criteri equita chi viene messo",
+ corpo:[
+ "<p>Per ogni postazione il programma fa prima una <b>selezione secca</b>: tiene solo chi ha il ruolo, è disponibile in quel giorno e in quella fascia, non è assente, non ha il contratto finito, non è già in turno in quell'orario e non sfonderebbe il proprio tetto di ore.</p>",
+ "<p>Tra i rimasti sceglie in questo ordine:</p>",
+ "<ul>",
+ "<li>chi <b>non infrange</b> nessuna regola di tutela (e a parità, chi ne infrange di meno gravi);</li>",
+ "<li>chi ha quella fascia come <b>turno preferito</b>; i contratti a chiamata restano per ultimi;</li>",
+ "<li>chi ha fatto <b>meno straordinario</b> nelle settimane recenti, se il pareggiamento è attivo;</li>",
+ "<li>chi è più <b>lontano dalle proprie ore</b> di contratto in questa settimana.</li>",
+ "</ul>",
+ "<div class=\"formula\">L'ultimo criterio è quello che fa quadrare i part-time: a fine settimana tutti tendono alla stessa percentuale del proprio contratto, non allo stesso numero di ore.</div>"
+]},
+{id:"calc-consigli", gruppo:"Come calcola", titolo:"Quando non basta: consigli e soluzioni",
+ chiavi:"buchi scoperto consigli soluzioni straordinario disponibilita rigenerare accettare suggerimenti",
+ vaiA:{tab:"turni"},
+ corpo:[
+ "<p>Se dopo la generazione qualche postazione resta vuota, sotto al planner compare <b>Consigli e soluzioni</b>: fino a dieci proposte concrete, ordinate dalla più plausibile.</p>",
+ "<p>Per ogni buco il programma guarda <b>perché</b> non è riuscito a riempirlo e propone la mossa più piccola che lo risolverebbe: qualche ora di straordinario in più a chi ne ha margine, una disponibilità da chiedere, un numero di organico da rivedere.</p>",
+ "<ul>",
+ "<li><b>Accetta</b> cambia quella sola impostazione — te lo dice prima, per nome — e rigenera la settimana.</li>",
+ "<li><b>Vai all'impostazione</b> ti porta sul campo giusto e te lo fa notare, se preferisci decidere tu.</li>",
+ "</ul>",
+ "<div class=\"attenzione\">I consigli partono dalle mosse più probabili: qualche ora di straordinario in più è realistico, spezzare il turno di un altro molto meno. Se non c'è nessuna soluzione plausibile, il programma te lo dice invece di riempire la lista di proposte inutili.</div>"
+]},
+{id:"calc-chiusure", gruppo:"Come calcola", titolo:"Come entrano chiusure e assenze nei conti",
+ chiavi:"chiusure assenze calcoli ore non scalate ferie giorno chiuso coerenza",
+ corpo:[
+ "<ul>",
+ "<li><b>Giorno chiuso</b>: nessun turno, e nessuna ora scalata dai contratti. Se un dipendente ha segnato ferie su un giorno chiuso, quelle ferie non gli tolgono nulla: non avrebbe lavorato comunque.</li>",
+ "<li><b>Ferie o malattia</b>: tolgono una quota giornaliera dall'obiettivo settimanale di quella persona.</li>",
+ "<li><b>ROL</b>: toglie esattamente le ore che hai scritto.</li>",
+ "<li>Le chiusure straordinarie si vedono sia sul planner sia nelle Assenze, e valgono per tutti i calcoli della settimana.</li>",
+ "</ul>"
+]},
+
+/* ---------- problemi ---------- */
+{id:"prob-buchi", gruppo:"Se qualcosa non torna", titolo:"“Mi resta sempre scoperta la stessa fascia”",
+ chiavi:"problema buco sempre scoperto domenica sera manca gente non copre perche",
+ corpo:[
+ "<p>Controlla in quest'ordine — nove volte su dieci è uno dei primi tre:</p>",
+ "<ul>",
+ "<li><b>Disponibilità</b>: quante persone con quel ruolo sono davvero disponibili in quel giorno e in quella fascia? Se sono meno di quante ne chiedi, il buco è inevitabile.</li>",
+ "<li><b>Ruoli</b>: hai abbastanza gente con quella spunta?</li>",
+ "<li><b>Ore</b>: chi sarebbe disponibile ha ancora margine tra contratto e straordinario, o è già pieno?</li>",
+ "<li><b>Organico ideale</b>: il numero in quella cella è quello che vuoi davvero?</li>",
+ "</ul>",
+ "<p>La sezione <b>Consigli e soluzioni</b> sotto al planner fa questo controllo per te e ti dice quale dei quattro è il collo di bottiglia.</p>"
+]},
+{id:"prob-ore", gruppo:"Se qualcosa non torna", titolo:"“Le ore non arrivano al contratto”",
+ chiavi:"ore sotto contratto non quadrano mancano ore part time allungamento",
+ vaiA:{sezione:"personale", selettore:"#imp-durata"},
+ corpo:[
+ "<p>Il programma può assegnare ore solo dove c'è una postazione aperta. Se la somma delle postazioni della settimana è più piccola della somma dei contratti, le ore <b>non possono</b> quadrare: nessuna impostazione lo risolve, serve più apertura o meno personale.</p>",
+ "<p>Se invece il monte ore complessivo c'è, guarda:</p>",
+ "<ul>",
+ "<li><b>Allungamento per contratto</b> acceso: anticipa gli ingressi per recuperare le ore mancanti;</li>",
+ "<li>la <b>disponibilità</b> di chi resta sotto: se è disponibile solo la domenica sera, oltre quelle ore non si va;</li>",
+ "<li>eventuali <b>ferie o ROL</b> della settimana, che abbassano l'obiettivo di proposito.</li>",
+ "</ul>"
+]},
+{id:"prob-backup", gruppo:"Se qualcosa non torna", titolo:"Backup, cambio computer, dati persi",
+ chiavi:"backup esporta importa perso dati cambio computer browser cache sincronizzazione",
+ vaiA:{sezione:"azienda", selettore:"#imp-backup"},
+ corpo:[
+ "<p>Se in alto a destra vedi <b>“Sincronizzato”</b>, i dati stanno sul server e li ritrovi da qualunque computer con il tuo accesso. Se vedi <b>“Solo su questo browser”</b>, stanno solo qui: svuotare la cache li cancella.</p>",
+ "<p>In tutti e due i casi, <b>Esporta dati</b> nella card Backup ti dà un file con tutto. Tienine uno prima di ogni cambiamento importante: è l'unico vero annulla.</p>"
+]}
+];
+
+function guidaTestoPiano(v){
+  var html = v.corpo.join(" ");
+  return (v.titolo+" "+(v.chiavi||"")+" "+html.replace(/<[^>]*>/g," ")).replace(/\s+/g," ");
+}
+function guidaNormalizza(t){
+  // niente accenti e niente maiuscole: chi cerca "priorita" deve trovare "priorità"
+  return String(t||"").toLowerCase()
+    .replace(/[àáâä]/g,"a").replace(/[èéêë]/g,"e").replace(/[ìíîï]/g,"i")
+    .replace(/[òóôö]/g,"o").replace(/[ùúûü]/g,"u")
+    .replace(/[’']/g," ");
+}
+function guidaCerca(q){
+  var parole = guidaNormalizza(q).split(/[^a-z0-9]+/).filter(function(w){ return w.length>1; });
+  if(!parole.length) return null;
+  var out = [];
+  GUIDA.forEach(function(v){
+    var piano = guidaTestoPiano(v);
+    var normPiano = guidaNormalizza(piano);
+    var normTit = guidaNormalizza(v.titolo);
+    var trovate = 0, punti = 0;
+    parole.forEach(function(w){
+      if(normTit.indexOf(w)!==-1){ trovate++; punti += 10; return; }
+      if(normPiano.indexOf(w)!==-1){ trovate++; punti += 1; }
+    });
+    // tutte le parole cercate devono comparire: così "ore massime" non restituisce
+    // ogni voce che contiene "ore"
+    if(trovate===parole.length) out.push({voce:v, punti:punti, estratto:guidaEstratto(piano, normPiano, parole[0])});
+  });
+  out.sort(function(a,b){ return b.punti-a.punti; });
+  return out;
+}
+function guidaEstratto(piano, normPiano, parola){
+  var i = normPiano.indexOf(parola);
+  if(i===-1) i = 0;
+  var da = Math.max(0, i-70), a = Math.min(piano.length, i+150);
+  var testo = (da>0?"…":"") + piano.slice(da,a).trim() + (a<piano.length?"…":"");
+  // Si spezza il testo GREZZO sulla parola cercata, si escapa ogni pezzo e solo dopo
+  // si mette <mark>. Evidenziare sul testo già escapato spezzerebbe le entità: cercare
+  // "amp" dentro "&amp;" produrrebbe "&<mark>amp</mark>;" a schermo.
+  var out = "", resto = testo, basso = testo.toLowerCase(), p = parola.toLowerCase();
+  var guardia = 0;
+  while(p && guardia++ < 50){
+    var k = basso.indexOf(p);
+    if(k === -1) break;
+    out += escapeHtml(resto.slice(0, k)) + "<mark>" + escapeHtml(resto.slice(k, k+p.length)) + "</mark>";
+    resto = resto.slice(k+p.length);
+    basso = basso.slice(k+p.length);
+  }
+  return out + escapeHtml(resto);
+}
+
+var guidaAperta = false;
+var guidaVoce = GUIDA[0].id;
+var guidaQuery = "";
+
+function apriGuida(idVoce){
+  guidaAperta = true;
+  if(idVoce) guidaVoce = idVoce;
+  guidaQuery = "";
+  renderGuidaRoot();
+  var c = document.getElementById("guida-cerca");
+  if(c) c.focus();
+}
+function chiudiGuida(){
+  guidaAperta = false;
+  renderGuidaRoot();
+}
+function guidaVoceById(id){
+  for(var i=0;i<GUIDA.length;i++){ if(GUIDA[i].id===id) return GUIDA[i]; }
+  return GUIDA[0];
+}
+function guidaIndiceHtml(){
+  var html = "", gruppo = null;
+  GUIDA.forEach(function(v){
+    if(v.gruppo!==gruppo){ gruppo = v.gruppo; html += '<div class="guida-gruppo">'+escapeHtml(gruppo)+'</div>'; }
+    html += '<button class="guida-voce'+(v.id===guidaVoce?" attiva":"")+'" data-guida-voce="'+v.id+'">'+escapeHtml(v.titolo)+'</button>';
+  });
+  return html;
+}
+function guidaCorpoHtml(){
+  var risultati = guidaCerca(guidaQuery);
+  if(risultati){
+    if(!risultati.length){
+      return '<div class="guida-nulla"><p>Nessuna voce contiene tutte le parole che hai scritto.</p>'+
+        '<p>Prova con una parola sola, o con il nome dell’impostazione come lo vedi scritto nel programma: '+
+        '<i>organico</i>, <i>disponibilità</i>, <i>straordinario</i>, <i>chiusura</i>, <i>turni standard</i>, <i>ore massime</i>.</p></div>';
+    }
+    return '<div class="guida-nulla" style="margin-bottom:12px;">'+risultati.length+
+      (risultati.length===1?" voce trovata":" voci trovate")+' per “'+escapeHtml(guidaQuery)+'”.</div>'+
+      risultati.map(function(r){
+        return '<div class="guida-hit"><div class="guida-hit-tit"><button data-guida-voce="'+r.voce.id+'">'+
+          escapeHtml(r.voce.titolo)+' →</button></div><div class="guida-hit-estratto">'+r.estratto+'</div></div>';
+      }).join("");
+  }
+  var v = guidaVoceById(guidaVoce);
+  var vai = "";
+  if(v.vaiA){
+    vai = '<div class="btn-row" style="margin-top:6px;"><button class="btn btn-sm btn-primary" data-guida-vai="'+v.id+'">Portami su questa impostazione</button></div>';
+  }
+  return '<div class="kicker">'+escapeHtml(v.gruppo)+'</div><h3>'+escapeHtml(v.titolo)+'</h3>'+v.corpo.join("")+vai;
+}
+function renderGuidaRoot(){
+  var root = document.getElementById("guida-root");
+  if(!root) return;
+  if(!guidaAperta){ root.innerHTML = ""; return; }
+  root.innerHTML =
+    '<div class="overlay" id="guida-overlay"><div class="overlay-box" style="max-width:1020px;">'+
+      '<div class="overlay-head"><div><h2>Guida all’uso</h2>'+
+        '<div class="sott">Cerca una parola o scegli un argomento dall’indice. <span class="guida-aggiornata">Aggiornata al '+GUIDA_AGGIORNATA+'.</span></div></div>'+
+        '<button class="btn-chiudi" id="guida-chiudi" title="Chiudi">×</button></div>'+
+      '<div class="overlay-body">'+
+        '<input type="search" class="guida-cerca" id="guida-cerca" placeholder="Cerca nella guida: organico, ferie, straordinario, turni standard…" value="'+escapeHtml(guidaQuery)+'">'+
+        '<div class="guida-layout">'+
+          '<div class="guida-indice" id="guida-indice">'+guidaIndiceHtml()+'</div>'+
+          '<div class="guida-testo" id="guida-testo">'+guidaCorpoHtml()+'</div>'+
+        '</div>'+
+      '</div>'+
+    '</div>';
+  wireGuida();
+}
+function aggiornaGuidaCorpo(){
+  var ind = document.getElementById("guida-indice");
+  var txt = document.getElementById("guida-testo");
+  if(!ind || !txt) return renderGuidaRoot();
+  ind.innerHTML = guidaIndiceHtml();
+  txt.innerHTML = guidaCorpoHtml();
+  txt.scrollTop = 0;
+  wireGuidaInterni();
+}
+function wireGuidaInterni(){
+  document.querySelectorAll("[data-guida-voce]").forEach(function(b){
+    b.addEventListener("click", function(){
+      guidaVoce = b.getAttribute("data-guida-voce");
+      guidaQuery = "";
+      var c = document.getElementById("guida-cerca");
+      if(c) c.value = "";
+      aggiornaGuidaCorpo();
+    });
+  });
+  document.querySelectorAll("[data-guida-vai]").forEach(function(b){
+    b.addEventListener("click", function(){ vaiDaGuida(b.getAttribute("data-guida-vai")); });
+  });
+}
+function wireGuida(){
+  var chiudi = document.getElementById("guida-chiudi");
+  if(chiudi) chiudi.addEventListener("click", chiudiGuida);
+  var ov = document.getElementById("guida-overlay");
+  if(ov) ov.addEventListener("click", function(ev){ if(ev.target===ov) chiudiGuida(); });
+  var cerca = document.getElementById("guida-cerca");
+  if(cerca) cerca.addEventListener("input", function(){ guidaQuery = cerca.value; aggiornaGuidaCorpo(); });
+  wireGuidaInterni();
+}
+/* Chiude la guida e porta l'utente sull'impostazione di cui parlava la voce. */
+function vaiDaGuida(idVoce){
+  var v = guidaVoceById(idVoce);
+  if(!v.vaiA) return;
+  guidaAperta = false;
+  renderGuidaRoot();
+  activeTab = v.vaiA.tab || "impostazioni";
+  if(v.vaiA.sezione) impSezione = v.vaiA.sezione;
+  evidenziaSelettore = v.vaiA.selettore || null;
+  render();
+}
+
+/* ==========================================================================
+   PERCORSO GUIDATO DI PRIMA CONFIGURAZIONE
+   Sei passi, nessuno obbligatorio: a ogni "Avanti" quello che è stato scritto
+   finisce subito nelle impostazioni, così chi si interrompe a metà non perde
+   niente e ritrova il percorso dove l'aveva lasciato.
+   ========================================================================== */
+var TIPI_ATTIVITA = [
+  {id:"bar",         nome:"Bar / caffetteria",        continuato:true,  apre:"07:00", chiude:"20:00", medio:"14:00"},
+  {id:"bar-cucina",  nome:"Bar con cucina",           continuato:true,  apre:"07:00", chiude:"22:00", medio:"15:00"},
+  {id:"trattoria",   nome:"Trattoria / ristorante",   continuato:false, apre:"11:30", chiude:"15:00", medio:"13:30", seraDa:"18:30", seraA:"23:00"},
+  {id:"pizzeria",    nome:"Pizzeria",                 continuato:false, apre:"11:30", chiude:"14:30", medio:"13:00", seraDa:"18:00", seraA:"23:30"},
+  {id:"ristosera",   nome:"Solo cena / cocktail bar", continuato:true,  apre:"18:00", chiude:"01:00", medio:"21:00"},
+  {id:"mensa",       nome:"Mensa / gastronomia",      continuato:true,  apre:"08:00", chiude:"16:00", medio:"12:30"},
+  {id:"altro",       nome:"Altro",                    continuato:true,  apre:"08:00", chiude:"22:00", medio:"15:00"}
+];
+/* I numeri di organico "tipici" di un giorno normale o di un giorno di punta, letti
+   dalla tabella vera. Si guarda la fascia con più gente (in un ristorante è la sera,
+   in un bar la mattina): è quella che l'utente riconosce come "quante persone mi
+   servono". */
+function organicoRappresentativo(s, dipicco){
+  var out = {cucina:0, banco:0, sala:0};
+  var giorni = DAYS.filter(function(d){ return !!(s.giorniPicco && s.giorniPicco[d]) === !!dipicco; });
+  if(!giorni.length) giorni = DAYS.slice();
+  giorni.forEach(function(d){
+    var og = (s.organico && s.organico[d]) || {};
+    BANDE.forEach(function(b){
+      var cel = og[b] || {};
+      DEPARTMENTS.forEach(function(dep){
+        out[dep] = Math.max(out[dep], Math.max(0, Number(cel[dep])||0));
+      });
+    });
+  });
+  return out;
+}
+function tipoAttivitaById(id){
+  for(var i=0;i<TIPI_ATTIVITA.length;i++){ if(TIPI_ATTIVITA[i].id===id) return TIPI_ATTIVITA[i]; }
+  return TIPI_ATTIVITA[0];
+}
+var WIZ_PASSI = ["Benvenuto","La tua attività","Quando sei aperto","Quante persone servono","Chi lavora con te","Fatto"];
+var wizardAperto = false;
+var wizPasso = 0;
+var wizDati = null;
+
+function wizardInit(){
+  var s = state.settings;
+  var oreDaSeed = state.isSeed;
+  wizDati = {
+    partoDaZero: oreDaSeed ? null : false,   // null = non ha ancora scelto
+    tipo: "bar-cucina",
+    nome: oreDaSeed ? "" : (s.barName||""),
+    comune: (s.azienda && s.azienda.comune) || "",
+    provincia: (s.azienda && s.azienda.provincia) || "",
+    giorni: DAYS.map(function(d){
+      var og = (s.orariGiorni && s.orariGiorni[d]) || {};
+      var f1 = og.fascia1 || {inizio:"08:00", fine:"22:00", puntoMedio:"15:00"};
+      return {day:d, modo: og.chiuso ? "chiuso" : (og.fascia2 ? "doppio" : "continuato"),
+              inizio:f1.inizio, fine:f1.fine, medio:f1.puntoMedio,
+              seraDa:(og.fascia2&&og.fascia2.inizio)||"19:00", seraA:(og.fascia2&&og.fascia2.fine)||"23:00"};
+    }),
+    // si parte dai numeri VERI già in tabella, non da costanti: chi apre il percorso
+    // per curiosità e preme Avanti non deve trovarsi l'organico riscritto a 1/1/1
+    normale: organicoRappresentativo(s, false),
+    picco: organicoRappresentativo(s, true),
+    giorniPicco: DAYS.reduce(function(o,d){ o[d] = !!(s.giorniPicco && s.giorniPicco[d]); return o; }, {}),
+    nuovi: [{nome:"", ruolo:"sala", ore:40}, {nome:"", ruolo:"banco", ore:30}, {nome:"", ruolo:"cuoco_capo", ore:40}]
+  };
+}
+function apriWizard(passo){
+  if(!wizDati) wizardInit();
+  wizardAperto = true;
+  wizPasso = passo || 0;
+  renderWizardRoot();
+}
+function chiudiWizard(){
+  wizardAperto = false;
+  renderWizardRoot();
+  render();
+}
+/* Svuota personale e settimane, ma solo dopo aver detto con numeri precisi cosa
+   sparisce. È l'unica operazione distruttiva del percorso e non deve mai avvenire
+   come effetto collaterale di un "Avanti" o di una chiusura: chi ha cancellato i
+   dipendenti finti e messo i propri senza importare un backup ha ancora isSeed a
+   true, e per lui questa è la cancellazione dei dati veri. */
+function svuotaDatiDiProva(){
+  var nP = state.employees.length;
+  var nS = Object.keys(state.weeks||{}).length;
+  if(!nP && !nS) return true;
+  var righe = [];
+  if(nP) righe.push(nP===1 ? "1 dipendente" : nP+" dipendenti");
+  if(nS) righe.push(nS===1 ? "1 settimana di turni già generata" : nS+" settimane di turni già generate");
+  var ok = confirm("Sto per cancellare " + righe.join(" e ") + ".\n\n" +
+    "Controlla che siano davvero soltanto i dati di esempio: se hai già inserito le tue persone o generato turni veri, " +
+    "spariscono anche quelli e non si torna indietro.\n\n" +
+    "Se non sei sicuro, annulla, fai un backup da Impostazioni → Backup dati, e riprova.\n\n" +
+    "Cancellare?");
+  if(!ok) return false;
+  state.employees = [];
+  state.weeks = {};
+  state.isSeed = false;
+  saveState();
+  return true;
+}
+function wizardCompletato(){
+  var o = state.settings.onboarding;
+  return !!(o && o.fatto);
+}
+function segnaOnboarding(fatto){
+  state.settings.onboarding = state.settings.onboarding || {};
+  state.settings.onboarding.fatto = !!fatto;
+  state.settings.onboarding.quando = new Date().toISOString();
+}
+
+/* Applica UN SOLO passo: quello che l'utente sta lasciando. Applicare "tutti i passi
+   fino a N" significherebbe riscrivere impostazioni che l'utente non ha nemmeno
+   guardato — ed è esattamente così che un percorso pensato per aiutare finisce per
+   cancellare una configurazione fatta a mano.
+   Lo svuotamento dei dati di esempio NON sta qui: avviene solo al clic, dopo una
+   conferma che dice quanti dipendenti e quante settimane spariscono. */
+function wizardSalva(passo){
+  var s = state.settings;
+  var d = wizDati;
+  if(passo===1){
+    if(d.nome) s.barName = d.nome;
+    s.azienda = s.azienda || defaultAzienda();
+    s.azienda.comune = d.comune;
+    s.azienda.provincia = (d.provincia||"").toUpperCase().slice(0,2);
+  }
+  if(passo===2){
+    d.giorni.forEach(function(g){
+      var og = s.orariGiorni[g.day] = s.orariGiorni[g.day] || {};
+      if(g.modo==="chiuso"){ og.chiuso = true; return; }
+      og.chiuso = false;
+      // il cambio turno DEVE cadere dentro l'apertura: fuori, la fascia del pomeriggio
+      // diventa un turno di ventiquattro ore che sfonda il monte ore di chiunque
+      var medio = dentroApertura(g.inizio, g.fine, g.medio) ? g.medio : metaApertura(g.inizio, g.fine);
+      g.medio = medio;
+      og.fascia1 = {inizio:g.inizio, fine:g.fine, puntoMedio:medio};
+      og.fascia2 = (g.modo==="doppio") ? {inizio:g.seraDa, fine:g.seraA} : null;
+      allineaOrariCucinaGiorno(s, g.day, og);
+    });
+    // i valori generali restano la base per i giorni ricostruiti da zero: si tengono
+    // distinti feriale e weekend, altrimenti la differenza sparisce in silenzio
+    var apertoTra = function(giorni){
+      return d.giorni.filter(function(g){ return g.modo!=="chiuso" && giorni.indexOf(g.day)!==-1; })[0];
+    };
+    var feriale = apertoTra(["lunedi","martedi","mercoledi","giovedi","venerdi"]);
+    var weekend = apertoTra(["sabato","domenica"]);
+    var primo = feriale || weekend;
+    if(primo){
+      s.apertura = primo.inizio;
+      s.chiusuraFeriale = (feriale||primo).fine;
+      s.puntoMedioFeriale = (feriale||primo).medio;
+      s.chiusuraWeekend = (weekend||primo).fine;
+      s.puntoMedioWeekend = (weekend||primo).medio;
+      // il cuoco e il banco entrano prima dell'apertura, non alle sette di default
+      s.cuocoInizio = addMin(primo.inizio, -60);
+      s.bancoInizio = addMin(primo.inizio, -60);
+      s.camerierArrivo = primo.inizio;
+      s.fineTurnoCuocoCapo = addMin(primo.medio, 30);
+      s.fineTurnoCuocoRiserva = primo.medio;
+    }
+  }
+  if(passo===3){
+    // Il percorso pone UNA domanda ("quante persone in un giorno normale, quante in uno
+    // di punta") e la tabella vera ne ha sessantatré celle. Riscriverla comunque
+    // appiattirebbe ogni differenza che l'utente ha messo a mano cella per cella: si
+    // riscrive solo se questi numeri sono stati davvero cambiati qui dentro.
+    var nuoviPicco = {};
+    DAYS.forEach(function(day){ nuoviPicco[day] = !!d.giorniPicco[day]; });
+    var piccoCambiati = DAYS.some(function(day){ return nuoviPicco[day] !== !!(s.giorniPicco && s.giorniPicco[day]); });
+    var numeriCambiati = DEPARTMENTS.some(function(dep){
+      return Number(d.normale[dep]) !== Number(organicoRappresentativo(s,false)[dep])
+          || Number(d.picco[dep])   !== Number(organicoRappresentativo(s,true)[dep]);
+    });
+    s.giorniPicco = nuoviPicco;
+    if(piccoCambiati || numeriCambiati){
+      s.organico = organicoDaWizard(d.normale, d.picco, s.giorniPicco);
+    }
+    // i livelli alta/media/bassa si riderivano solo se i giorni di punta sono cambiati:
+    // altrimenti si butterebbe via quello che l'utente ha regolato fascia per fascia
+    if(piccoCambiati){
+      s.prioritaFasce = deriveFasceFromDayTiers(s.giorniPicco, s.giorniPriorita2);
+    }
+    // un cuoco chiesto per la cena senza "la cucina segue le fasce" non viene
+    // generato E non viene nemmeno segnalato come buco: il turno svanisce e basta
+    var cuochiACena = DAYS.some(function(day){
+      var og = s.orariGiorni[day] || {};
+      return !og.chiuso && og.fascia2 && Math.max(0, Number(((s.organico[day]||{}).sera||{}).cucina)||0) > 0;
+    });
+    if(cuochiACena){
+      s.cucinaSegueFasce = true;
+      DAYS.forEach(function(day){ allineaOrariCucinaGiorno(s, day, s.orariGiorni[day] || {}); });
+    }
+  }
+  if(passo===4){
+    d.nuovi.forEach(function(r){
+      var nome = (r.nome||"").trim();
+      if(!nome) return;
+      // già aggiunto: non si duplica tornando indietro. Ma se nel frattempo è
+      // scomparso (cancellato a mano, o stato sostituito) va ricreato, altrimenti
+      // la riga resta segnata "aggiunto" e quella persona non esiste da nessuna parte
+      if(r.creato && state.employees.some(function(x){ return x.id===r.creato; })) return;
+      var e = {id:uid(), nome:nome,
+        ruoli:{cuoco_capo:r.ruolo==="cuoco_capo", cuoco_riserva:r.ruolo==="cuoco_riserva",
+               banco:r.ruolo==="banco"||r.ruolo==="banco_sala", sala:r.ruolo==="sala"||r.ruolo==="banco_sala"},
+        oreContratto:Math.max(0,Number(r.ore)||0), straordinario:0, giorniLavorativi:5,
+        turnoPreferito:"indifferente", spezzatiOk:!!s.spezzatiDiDefault, tipoContratto:"fisso",
+        disponibilita:defaultAvail(), assenze:{}, fineContrattoDal:null};
+      state.employees.push(e);
+      r.creato = e.id;
+    });
+  }
+  saveState();
+}
+/* Durata di un'apertura in minuti, gestendo le aperture che scavalcano la mezzanotte
+   (18:00–01:00 dura sette ore, non meno diciassette). */
+function durataApertura(inizio, fine){
+  var m = (timeToMin(fine) - timeToMin(inizio) + 1440) % 1440;
+  return m === 0 ? 1440 : m;
+}
+function dentroApertura(inizio, fine, quando){
+  if(!quando) return false;
+  var off = (timeToMin(quando) - timeToMin(inizio) + 1440) % 1440;
+  return off > 0 && off < durataApertura(inizio, fine);
+}
+function metaApertura(inizio, fine){
+  // a quarti d'ora: "13:27" come cambio turno non lo scriverebbe nessuno
+  var meta = Math.round(durataApertura(inizio, fine) / 2 / 15) * 15;
+  if(meta <= 0) meta = 15;
+  return addMin(inizio, meta);
+}
+/* Gli orari della cucina di un giorno, ricavati dall'apertura di quel giorno: il cuoco
+   entra un'ora prima e finisce mezz'ora dopo il cambio turno. Serve perché il percorso
+   guidato non può chiedere anche questo, ma lasciare il cuoco alle 07:00 in un locale
+   che apre alle 18:00 produce turni assurdi senza dire niente a nessuno. */
+function allineaOrariCucinaGiorno(s, day, og){
+  s.orariCucina = s.orariCucina || {};
+  var corr = s.orariCucina[day] = s.orariCucina[day] || {fascia1:null, fascia2:null};
+  var f1 = og.fascia1;
+  if(og.chiuso || !f1){ return; }
+  corr.fascia1 = {inizio: addMin(f1.inizio, -60),
+                  fineCapo: addMin(f1.puntoMedio, 30),
+                  fineRiserva: f1.puntoMedio};
+  if(og.fascia2 && s.cucinaSegueFasce){
+    var f2 = og.fascia2;
+    corr.fascia2 = {inizio: addMin(f2.inizio, -60),
+                    fineCapo: f2.fine,
+                    fineRiserva: addMin(f2.fine, -60)};
+  } else if(!og.fascia2){
+    corr.fascia2 = null;
+  }
+}
+/* Come defaultOrganico, ma il rinforzo dei giorni di punta vale su tutte le fasce:
+   in un ristorante il pieno è la sera, non la mattina. */
+function organicoDaWizard(normale, picco, giorniPicco){
+  var out = {};
+  DAYS.forEach(function(d){
+    var src = giorniPicco[d] ? picco : normale;
+    out[d] = {};
+    BANDE.forEach(function(b){
+      out[d][b] = {cucina: b==="pomeriggio" ? 0 : Math.max(0,Number(src.cucina)||0),
+                   banco: Math.max(0,Number(src.banco)||0),
+                   sala: Math.max(0,Number(src.sala)||0)};
+    });
+  });
+  return out;
+}
+
+function wizBarra(){
+  return '<div class="wiz-barra">'+WIZ_PASSI.map(function(_, i){
+    return '<div class="wiz-tacca'+(i<wizPasso?" fatta":(i===wizPasso?" ora":""))+'"></div>';
+  }).join("")+'</div>';
+}
+function wizCorpo(){
+  var d = wizDati;
+  if(wizPasso===0){
+    var testa = '<h3>Benvenuto: mettiamo su la tua attività in dieci minuti</h3>'+
+      '<p class="intro">Ti faccio cinque domande. Alla fine il programma sa quando sei aperto, quante persone ti servono e chi hai, e può generare la prima settimana di turni. Puoi uscire quando vuoi: quello che hai scritto resta salvato.</p>';
+    // la scelta sui dati di esempio ha senso solo se ci sono ancora: a chi ha già i
+    // propri dipendenti dentro non si propone di cancellare niente
+    if(!state.isSeed){
+      var quanti = state.employees.length;
+      return testa+'<div class="wiz-recap">'+
+        (quanti ? 'Hai già <b>'+quanti+'</b> '+(quanti===1?"persona":"persone")+' in organico. ' : '')+
+        'Il percorso non cancella niente: ti fa solo rivedere in fila orari, organico e personale, e quello che non tocchi resta com’è.</div>';
+    }
+    return testa+
+      '<button class="wiz-scelta'+(d.partoDaZero===true?" sel":"")+'" data-wiz-zero="1"><b>Parto dai miei dati</b><span>Toglie i dipendenti e le settimane di esempio e parte pulito. È la scelta giusta se questo programma lo userai davvero.</span></button>'+
+      '<button class="wiz-scelta'+(d.partoDaZero===false?" sel":"")+'" data-wiz-zero="0"><b>Prima voglio vedere l’esempio</b><span>Tiene i nove dipendenti di prova per capire come funziona. Li potrai cancellare dopo, dalla scheda Personale.</span></button>'+
+      (d.partoDaZero===null ? '<div class="wiz-recap" style="margin-top:6px;">Scegli una delle due per andare avanti.</div>' : '');
+  }
+  if(wizPasso===1){
+    var opzTipo = TIPI_ATTIVITA.map(function(t){
+      return '<option value="'+t.id+'"'+(d.tipo===t.id?" selected":"")+'>'+escapeHtml(t.nome)+'</option>';
+    }).join("");
+    return '<h3>Com’è fatta la tua attività</h3>'+
+      '<p class="intro">Il nome compare in alto e sulle stampe dei turni. Il tipo serve solo a proporti degli orari sensati al passo dopo: li cambierai comunque. Comune e provincia servono a suggerirti le feste e gli eventi della tua zona.</p>'+
+      '<div class="grid cols-2">'+
+        '<label class="field">Nome dell’attività<input type="text" id="wiz-nome" value="'+escapeHtml(d.nome)+'" placeholder="Trattoria del Porto"></label>'+
+        '<label class="field">Tipo di attività<select id="wiz-tipo">'+opzTipo+'</select></label>'+
+        '<label class="field">Comune<input type="text" id="wiz-comune" value="'+escapeHtml(d.comune)+'" placeholder="Bardolino"></label>'+
+        '<label class="field">Provincia<input type="text" id="wiz-prov" maxlength="2" value="'+escapeHtml(d.provincia)+'" placeholder="VR"></label>'+
+      '</div>';
+  }
+  if(wizPasso===2){
+    var righe = d.giorni.map(function(g, i){
+      var sel = function(v,l){ return '<option value="'+v+'"'+(g.modo===v?" selected":"")+'>'+l+'</option>'; };
+      var orari = "";
+      if(g.modo==="chiuso"){
+        orari = '<span>chiuso tutto il giorno</span>';
+      } else {
+        // escapeHtml anche sugli orari: arrivano da uno stato che "Importa dati"
+        // accetta senza validare, quindi sono testo di provenienza ignota
+        var ora = function(campo){
+          return '<input type="time" data-wiz-g="'+i+'" data-wiz-campo="'+campo+'" value="'+escapeHtml(g[campo])+'">';
+        };
+        if(g.modo==="doppio"){
+          orari = 'pranzo '+ora("inizio")+'–'+ora("fine")+
+                  ' · cena '+ora("seraDa")+'–'+ora("seraA")+
+                  ' · cambio turno '+ora("medio");
+        } else {
+          orari = 'dalle '+ora("inizio")+' alle '+ora("fine")+' · cambio turno '+ora("medio");
+        }
+      }
+      return '<div class="wiz-giorno"><div class="wiz-giorno-nome">'+DAY_LABELS[g.day]+'</div>'+
+        '<div class="wiz-orari"><select data-wiz-modo="'+i+'">'+
+          sel("continuato","Orario continuato")+sel("doppio","Pranzo e cena")+sel("chiuso","Chiuso")+
+        '</select>'+orari+'</div></div>';
+    }).join("");
+    return '<h3>Quando sei aperto</h3>'+
+      '<p class="intro">Per ogni giorno: aperto tutto il giorno, aperto a pranzo e a cena con la pausa in mezzo, oppure chiuso. Il <b>cambio turno</b> è l’ora in cui finisce chi ha aperto e comincia chi chiude.</p>'+
+      '<div class="btn-row" style="margin-bottom:12px;"><button class="btn btn-sm" id="wiz-preset">Riempi tutti i giorni con gli orari tipici di “'+escapeHtml(tipoAttivitaById(d.tipo).nome)+'”</button></div>'+
+      righe;
+  }
+  if(wizPasso===3){
+    var giorniBox = DAYS.map(function(day){
+      return '<label class="check"><input type="checkbox" data-wiz-picco="'+day+'"'+(d.giorniPicco[day]?" checked":"")+'>'+DAY_LABELS[day]+'</label>';
+    }).join("");
+    var riga = function(quale, etichetta){
+      return '<tr><td><b>'+etichetta+'</b></td>'+DEPARTMENTS.map(function(dep){
+        return '<td><input type="number" min="0" max="20" data-wiz-org="'+quale+'" data-wiz-dep="'+dep+'" value="'+d[quale][dep]+'"></td>';
+      }).join("")+'</tr>';
+    };
+    return '<h3>Quante persone ti servono</h3>'+
+      '<p class="intro">In ogni fascia oraria aperta, quante persone vuoi per reparto. Comincia largo e sistema dopo: questi numeri finiscono nella tabella <b>Organico ideale</b>, dove li potrai cambiare cella per cella.</p>'+
+      '<table class="wiz-tab"><thead><tr><th></th>'+DEPARTMENTS.map(function(dep){ return '<th>'+DEPARTMENT_LABELS[dep]+'</th>'; }).join("")+'</tr></thead>'+
+      '<tbody>'+riga("normale","Giorno normale")+riga("picco","Giorno di punta")+'</tbody></table>'+
+      '<p class="intro" style="margin:16px 0 8px;">Quali sono i tuoi giorni di punta?</p>'+
+      '<div class="grid cols-4">'+giorniBox+'</div>'+
+      '<div class="wiz-recap" style="margin-top:16px;">La <b>cucina</b> viene messa sul pranzo e sulla cena, non sul pomeriggio: il pomeriggio fa parte del turno di pranzo. Se un reparto non ti serve, mettilo a <b>0</b>: il programma non aprirà quelle postazioni e non ti segnalerà buchi.</div>';
+  }
+  if(wizPasso===4){
+    if(state.isSeed && d.partoDaZero!==true && state.employees.length){
+      return '<h3>Chi lavora con te</h3>'+
+        '<p class="intro">Hai scelto di tenere i dipendenti di esempio, quindi qui non c’è niente da fare: ne trovi già '+state.employees.length+' nella scheda <b>Personale</b>, dove puoi cambiarne nomi, ruoli, ore e disponibilità o cancellarli.</p>'+
+        '<div class="wiz-recap">Quando vuoi passare ai tuoi dati veri, cancella quelli di esempio dalla scheda Personale e aggiungi i tuoi. Niente si rompe: le settimane già generate restano, e puoi rigenerarle quando vuoi.</div>';
+    }
+    var opzRuolo = function(r, v, l){ return '<option value="'+v+'"'+(r===v?" selected":"")+'>'+l+'</option>'; };
+    var righeP = d.nuovi.map(function(r, i){
+      return '<tr>'+
+        '<td><input type="text" data-wiz-p="'+i+'" data-wiz-pcampo="nome" value="'+escapeHtml(r.nome)+'" placeholder="Nome"'+(r.creato?" disabled":"")+'></td>'+
+        '<td><select data-wiz-p="'+i+'" data-wiz-pcampo="ruolo"'+(r.creato?" disabled":"")+'>'+
+          opzRuolo(r.ruolo,"cuoco_capo","Cuoco (capo)")+opzRuolo(r.ruolo,"cuoco_riserva","Cuoco (riserva)")+
+          opzRuolo(r.ruolo,"banco","Banco")+opzRuolo(r.ruolo,"sala","Sala")+opzRuolo(r.ruolo,"banco_sala","Banco e sala")+
+        '</select></td>'+
+        '<td><input type="number" min="0" max="60" data-wiz-p="'+i+'" data-wiz-pcampo="ore" value="'+r.ore+'"'+(r.creato?" disabled":"")+'></td>'+
+        '<td>'+(r.creato?'<span class="pill pill-success">aggiunto</span>':'')+'</td></tr>';
+    }).join("");
+    return '<h3>Chi lavora con te</h3>'+
+      '<p class="intro">Il minimo indispensabile per generare i primi turni: nome, cosa sa fare, ore di contratto alla settimana. Tutto il resto — disponibilità giorno per giorno, straordinario, turni spezzati — si aggiunge dopo dalla scheda <b>Personale</b>. Per adesso ognuno risulta disponibile sempre.</p>'+
+      '<table class="wiz-tab"><thead><tr><th>Nome</th><th>Fa</th><th>Ore/sett.</th><th></th></tr></thead><tbody>'+righeP+'</tbody></table>'+
+      '<div class="btn-row" style="margin-top:12px;"><button class="btn btn-sm" id="wiz-piu-persone">+ Aggiungi un’altra persona</button></div>'+
+      '<div class="wiz-recap" style="margin-top:14px;">Le righe lasciate senza nome vengono ignorate. Puoi aggiungerne altre in qualsiasi momento dalla scheda Personale.</div>';
+  }
+  // passo 5: fatto
+  var s = state.settings;
+  var aperti = DAYS.filter(function(day){ return !(s.orariGiorni[day]&&s.orariGiorni[day].chiuso); }).length;
+  var conPersone = state.employees.length;
+  var oreTotali = state.employees.reduce(function(a,e){ return a+(Number(e.oreContratto)||0); },0);
+  // gli errori delle impostazioni si mostrano QUI: il percorso porta diritto su Turni,
+  // e un avviso che vive solo nella scheda Impostazioni non lo leggerebbe nessuno
+  var esiti = validaImpostazioni(s);
+  var errori = esiti.filter(function(x){ return x.livello==="errore"; });
+  var avvisi = esiti.filter(function(x){ return x.livello==="avviso"; });
+  var problemi = "";
+  if(errori.length || avvisi.length){
+    problemi = '<div class="'+(errori.length?"attenzione-box":"avviso-box")+'" style="margin-top:16px;">'+
+      '<b>'+(errori.length
+        ? "Due cose da sistemare prima di generare i turni:"
+        : "Da tenere presente:")+'</b><ul style="margin:8px 0 0;padding-left:20px;font-size:.85rem;line-height:1.6;">'+
+      errori.concat(avvisi).slice(0,6).map(function(x){ return '<li>'+escapeHtml(x.testo)+'</li>'; }).join("")+
+      '</ul><div style="font-size:.82rem;margin-top:8px;">Si sistemano nelle <b>Impostazioni</b>, dove ognuna di queste righe compare accanto al campo da cambiare.</div></div>';
+  }
+  return '<h3>'+(errori.length ? "Quasi pronto" : "Pronto")+'</h3>'+
+    '<p class="intro">'+(errori.length
+      ? "La configurazione di base c’è, ma su qualche orario i conti non tornano: se generi così, alcuni turni verranno fuori sbagliati."
+      : "Il programma ha quello che gli serve per provare a fare la prima settimana.")+'</p>'+
+    '<div class="wiz-recap">'+
+      '<b>'+escapeHtml(s.barName||"La tua attività")+'</b> · aperta '+aperti+' giorni su 7<br>'+
+      '<b>'+conPersone+'</b> '+(conPersone===1?"persona":"persone")+' in organico, per un totale di <b>'+oreTotali+' ore</b> di contratto alla settimana<br>'+
+      'Giorni di punta: <b>'+(DAYS.filter(function(day){ return s.giorniPicco[day]; }).map(function(day){ return DAY_LABELS[day]; }).join(", ")||"nessuno")+'</b>'+
+    '</div>'+
+    '<p class="intro" style="margin-top:16px;">Adesso conviene fare così: vai su <b>Turni</b>, premi <b>Genera turni</b> e guarda il risultato. Se qualche postazione resta vuota, sotto al planner trovi <b>Consigli e soluzioni</b> con le mosse che la riempirebbero.</p>'+
+    '<p class="intro">Le cose che non ti ho chiesto — disponibilità di ognuno, cucina, stagioni, chiusure per ferie, priorità — stanno tutte nelle <b>Impostazioni</b>, e la <b>Guida</b> in alto a destra le spiega una per una.</p>'+
+    problemi;
+}
+function renderWizardRoot(){
+  var root = document.getElementById("wizard-root");
+  if(!root) return;
+  if(!wizardAperto){ root.innerHTML = ""; return; }
+  var ultimo = wizPasso===WIZ_PASSI.length-1;
+  var bloccato = (wizPasso===0 && state.isSeed && wizDati.partoDaZero===null);
+  var avanti = ultimo
+    ? '<button class="btn btn-primary" id="wiz-fine">Vai ai turni e genera la settimana</button>'
+    : '<button class="btn btn-primary" id="wiz-avanti"'+(bloccato?" disabled":"")+'>Avanti</button>';
+  root.innerHTML =
+    '<div class="overlay" id="wiz-overlay"><div class="overlay-box" style="max-width:820px;">'+
+      '<div class="overlay-head"><div><h2>Prima configurazione</h2>'+
+        '<div class="sott">Passo '+(wizPasso+1)+' di '+WIZ_PASSI.length+' · '+WIZ_PASSI[wizPasso]+'</div></div>'+
+        '<button class="btn-chiudi" id="wiz-chiudi" title="Esci e continua dopo">×</button></div>'+
+      '<div class="overlay-body">'+wizBarra()+'<div class="wiz-body">'+wizCorpo()+'</div></div>'+
+      '<div class="overlay-foot">'+
+        '<div class="btn-row">'+
+          (wizPasso>0?'<button class="btn" id="wiz-indietro">Indietro</button>':'')+
+          '<button class="btn btn-ghost" id="wiz-esci">Esco, continuo dopo</button>'+
+        '</div>'+
+        '<div class="btn-row">'+(ultimo?'<button class="btn" id="wiz-guida">Apri la guida</button>':'')+avanti+'</div>'+
+      '</div>'+
+    '</div>';
+  wireWizard();
+}
+/* Legge nel modello quello che c'è nei campi di questo passo. Si chiama prima di
+   ogni spostamento: così Indietro non perde quello che si è appena scritto. */
+function wizLeggiPasso(){
+  var d = wizDati;
+  if(wizPasso===1){
+    var n = document.getElementById("wiz-nome"); if(n) d.nome = n.value;
+    var t = document.getElementById("wiz-tipo"); if(t) d.tipo = t.value;
+    var c = document.getElementById("wiz-comune"); if(c) d.comune = c.value;
+    var p = document.getElementById("wiz-prov"); if(p) d.provincia = p.value;
+  }
+  if(wizPasso===2){
+    document.querySelectorAll("[data-wiz-campo]").forEach(function(el){
+      var g = d.giorni[Number(el.getAttribute("data-wiz-g"))];
+      if(g) g[el.getAttribute("data-wiz-campo")] = el.value;
+    });
+  }
+  if(wizPasso===3){
+    document.querySelectorAll("[data-wiz-org]").forEach(function(el){
+      d[el.getAttribute("data-wiz-org")][el.getAttribute("data-wiz-dep")] = Math.max(0, Number(el.value)||0);
+    });
+    document.querySelectorAll("[data-wiz-picco]").forEach(function(el){
+      d.giorniPicco[el.getAttribute("data-wiz-picco")] = el.checked;
+    });
+  }
+  if(wizPasso===4){
+    document.querySelectorAll("[data-wiz-pcampo]").forEach(function(el){
+      var r = d.nuovi[Number(el.getAttribute("data-wiz-p"))];
+      if(!r || r.creato) return;
+      var campo = el.getAttribute("data-wiz-pcampo");
+      r[campo] = campo==="ore" ? Math.max(0, Number(el.value)||0) : el.value;
+    });
+  }
+}
+function wizVai(nuovo){
+  wizLeggiPasso();
+  wizardSalva(wizPasso);
+  wizPasso = Math.max(0, Math.min(WIZ_PASSI.length-1, nuovo));
+  renderWizardRoot();
+}
+function wireWizard(){
+  var byId = function(id){ return document.getElementById(id); };
+  var chiudi = function(){
+    wizLeggiPasso();
+    wizardSalva(wizPasso);   // solo il passo che si sta lasciando: niente effetti a sorpresa
+    chiudiWizard();
+  };
+  if(byId("wiz-chiudi")) byId("wiz-chiudi").addEventListener("click", chiudi);
+  if(byId("wiz-esci")) byId("wiz-esci").addEventListener("click", chiudi);
+  if(byId("wiz-avanti")) byId("wiz-avanti").addEventListener("click", function(){ wizVai(wizPasso+1); });
+  if(byId("wiz-indietro")) byId("wiz-indietro").addEventListener("click", function(){ wizVai(wizPasso-1); });
+  if(byId("wiz-guida")) byId("wiz-guida").addEventListener("click", function(){ apriGuida("ordine-config"); });
+  if(byId("wiz-fine")) byId("wiz-fine").addEventListener("click", function(){
+    wizLeggiPasso();
+    wizardSalva(wizPasso);
+    segnaOnboarding(true);
+    saveState();
+    wizardAperto = false;
+    renderWizardRoot();
+    activeTab = "turni";
+    render();
+    var b = document.getElementById("btn-generate");
+    if(b){ b.scrollIntoView({block:"center", behavior:"smooth"}); b.classList.add("evidenzia"); }
+  });
+  document.querySelectorAll("[data-wiz-zero]").forEach(function(b){
+    b.addEventListener("click", function(){
+      if(b.getAttribute("data-wiz-zero")!=="1"){
+        wizDati.partoDaZero = false;
+        renderWizardRoot();
+        return;
+      }
+      if(!svuotaDatiDiProva()) return;   // l'utente ha detto no: non si cambia niente
+      wizDati.partoDaZero = true;
+      renderWizardRoot();
+    });
+  });
+  var preset = byId("wiz-preset");
+  if(preset) preset.addEventListener("click", function(){
+    wizLeggiPasso();
+    var t = tipoAttivitaById(wizDati.tipo);
+    wizDati.giorni.forEach(function(g){
+      if(g.modo==="chiuso") return;          // un giorno di chiusura non si riapre da solo
+      g.modo = t.continuato ? "continuato" : "doppio";
+      g.inizio = t.apre; g.fine = t.chiude; g.medio = t.medio;
+      if(!t.continuato){ g.seraDa = t.seraDa; g.seraA = t.seraA; }
+    });
+    renderWizardRoot();
+  });
+  var piu = byId("wiz-piu-persone");
+  if(piu) piu.addEventListener("click", function(){
+    wizLeggiPasso();
+    wizDati.nuovi.push({nome:"", ruolo:"sala", ore:20});
+    renderWizardRoot();
+  });
+  // il tipo di apertura cambia i campi mostrati: si ridisegna subito
+  document.querySelectorAll("[data-wiz-modo]").forEach(function(sel){
+    sel.addEventListener("change", function(){
+      wizLeggiPasso();
+      wizDati.giorni[Number(sel.getAttribute("data-wiz-modo"))].modo = sel.value;
+      renderWizardRoot();
+    });
+  });
+  var ov = byId("wiz-overlay");
+  // niente chiusura cliccando fuori: qui dentro si stanno scrivendo dati, e un clic
+  // distratto che fa sparire il percorso a metà è solo un fastidio
+  if(ov) ov.addEventListener("mousedown", function(ev){ if(ev.target===ov) ev.preventDefault(); });
 }
 
 boot();

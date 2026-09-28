@@ -32,7 +32,8 @@ def colonne_di(leggi, tabella, dialect):
     """Elenco delle colonne di una tabella, in SQLite e in PostgreSQL."""
     if dialect == "postgresql":
         righe = leggi(
-            "SELECT column_name FROM information_schema.columns WHERE table_name = :t",
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name = :t AND table_schema = current_schema()",
             {"t": tabella},
         )
         return {r[0] for r in righe}
@@ -44,7 +45,8 @@ def colonne_di(leggi, tabella, dialect):
 def tabella_esiste(leggi, tabella, dialect):
     if dialect == "postgresql":
         righe = leggi(
-            "SELECT 1 FROM information_schema.tables WHERE table_name = :t",
+            "SELECT 1 FROM information_schema.tables "
+            "WHERE table_name = :t AND table_schema = current_schema()",
             {"t": tabella},
         )
     else:
@@ -71,6 +73,7 @@ def migra_a_locali(esegui, leggi, dialect="sqlite"):
         "colonna_aggiunta": False,
         "da_verificare": [],   # casi ambigui: NON si tira a indovinare, si segnala
         "stati_orfani": 0,     # stati che puntano a un'azienda che non esiste più
+        "colonne_invito": 0,   # colonne aggiunte per gli inviti
     }
 
     # database appena creato: create_all() ha già fatto tutto, non c'è nulla da migrare
@@ -104,6 +107,22 @@ def migra_a_locali(esegui, leggi, dialect="sqlite"):
             })
         else:
             esegui("CREATE UNIQUE INDEX IF NOT EXISTS ix_app_state_locale ON app_state (locale_id)")
+
+    # 1-bis) colonne dell'invito su "utenti": additive, come tutto il resto.
+    #        Servono a creare un accesso che esiste ma non si può ancora usare,
+    #        finché la persona non apre il link e sceglie la sua password.
+    colonne_utenti = colonne_di(leggi, "utenti", dialect)
+    for nome_col, tipo_col in (("token_attivazione", "VARCHAR(64)"),
+                               ("invitato_il", "VARCHAR(40)"),
+                               ("attivato_il", "VARCHAR(40)"),
+                               # NOT NULL con un default: le righe già presenti
+                               # partono da 1, come i nuovi utenti
+                               ("sessione", "INTEGER NOT NULL DEFAULT 1")):
+        if colonne_utenti and nome_col not in colonne_utenti:
+            esegui("ALTER TABLE utenti ADD COLUMN %s %s" % (nome_col, tipo_col))
+            fatto["colonne_invito"] = fatto.get("colonne_invito", 0) + 1
+    if colonne_utenti and "token_attivazione" in colonne_utenti or fatto.get("colonne_invito"):
+        esegui("CREATE INDEX IF NOT EXISTS ix_utenti_token_attivazione ON utenti (token_attivazione)")
 
     colonne_azienda = colonne_di(leggi, "aziende", dialect)
     ha_credenziali_azienda = "password_hash" in colonne_azienda and "email" in colonne_azienda

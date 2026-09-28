@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Attiva il tuo accesso — Gestione turni</title>
+<style>
+  :root{--ink:#1c1f26;--ink-muted:#6b7280;--surface:#ffffff;--surface-2:#f4f5f7;--accent:#2d6a4f;--danger:#b3261e;--border:#e2e4e8;}
+  *{box-sizing:border-box;}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+       background:var(--surface-2);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       color:var(--ink);padding:24px;}
+  .card{background:var(--surface);border-radius:16px;box-shadow:0 2px 16px rgba(0,0,0,.08);
+        padding:32px;width:100%;max-width:420px;}
+  h1{font-size:1.35rem;margin:0 0 6px;}
+  p.sub{color:var(--ink-muted);font-size:.9rem;margin:0 0 22px;line-height:1.5;}
+  label{display:block;font-size:.82rem;font-weight:600;margin-bottom:5px;}
+  input[type=password]{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:9px;
+        font-family:inherit;font-size:.95rem;margin-bottom:14px;}
+  input[type=password]:focus{outline:none;border-color:var(--accent);}
+  button{width:100%;background:var(--accent);color:#fff;border:none;border-radius:9px;
+        padding:12px;font-weight:600;font-size:.95rem;cursor:pointer;font-family:inherit;}
+  .err{background:#fdecea;color:var(--danger);padding:10px 12px;border-radius:8px;
+       font-size:.85rem;margin-bottom:16px;}
+  .who{background:var(--surface-2);border-radius:9px;padding:10px 12px;font-size:.85rem;
+       color:var(--ink-muted);margin-bottom:18px;}
+  .who b{color:var(--ink);}
+  .hint{font-size:.8rem;color:var(--ink-muted);margin-top:14px;line-height:1.5;}
+  .passi{margin:0 0 20px;padding-left:20px;font-size:.86rem;color:var(--ink-muted);line-height:1.6;}
+  .icona{font-size:2rem;line-height:1;margin-bottom:10px;}
+</style>
+</head>
+<body>
+<div class="card">
+
+{% if stato == "ok" %}
+  <h1>Scegli la tua password</h1>
+  <p class="sub">È l'unico passaggio: dopo entri direttamente nel programma e ti guido nella configurazione della tua attività.</p>
+
+  <div class="who">Accesso per <b>{{ email }}</b></div>
+
+  {% if errore %}<div class="err">{{ errore }}</div>{% endif %}
+
+  <form method="post" autocomplete="off">
+    <label for="password">Password (almeno 8 caratteri)</label>
+    <input type="password" id="password" name="password" minlength="8" required autocomplete="new-password" autofocus>
+    <label for="password2">Ripetila</label>
+    <input type="password" id="password2" name="password2" minlength="8" required autocomplete="new-password">
+    <button type="submit">Attiva e entra</button>
+  </form>
+
+  <p class="hint">Questa password serve solo a te per entrare: nessuno di noi la può leggere, nemmeno noi. Se la perdi, chiedi a chi ti ha dato l’accesso di reimpostarla: riceverai un nuovo link come questo.</p>
+
+{% elif stato == "scaduto" %}
+  <div class="icona">⏳</div>
+  <h1>Il link è scaduto</h1>
+  <p class="sub">Per sicurezza i link di attivazione valgono poche settimane, e questo ha superato il limite. L'account di <b>{{ email }}</b> è ancora lì con tutti i suoi dati: serve solo un link nuovo.</p>
+  <p class="hint">Chiedi a chi ti ha mandato l’invito di rifare il link: dal suo pannello è un clic, e il vecchio smette subito di funzionare.</p>
+
+{% else %}
+  <div class="icona">🔍</div>
+  <h1>Link non valido</h1>
+  <p class="sub">Questo indirizzo non corrisponde a nessun invito attivo. Di solito succede per uno di questi motivi:</p>
+  <ul class="passi">
+    <li>l'accesso è <b>già stato attivato</b> — in quel caso entra normalmente dalla pagina di accesso con la password che hai scelto;</li>
+    <li>il link è stato copiato a metà, tagliato da una riga andata a capo nel messaggio;</li>
+    <li>ne è stato generato uno nuovo, che ha sostituito questo.</li>
+  </ul>
+  <p class="hint"><a href="/login" style="color:var(--accent);">Vai alla pagina di accesso</a></p>
+{% endif %}
+
+</div>
+</body>
+</html>

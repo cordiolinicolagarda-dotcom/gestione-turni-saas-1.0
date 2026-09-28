@@ -1,5 +1,10 @@
 Flask>=3.0,<4.0
 Flask-SQLAlchemy>=3.1,<4.0
 Flask-Login>=0.6,<0.7
+# SQLAlchemy arriva comunque con Flask-SQLAlchemy, ma è scritto qui perché una sua
+# modifica ha già rotto un deploy: dalla 2.1 "postgresql://" non significa più
+# psycopg2 ma psycopg (v3). Il driver ora lo dichiara app.py in modo esplicito
+# (normalizza_url_database): se togli quella funzione, rimetti un limite qui.
+SQLAlchemy>=2.0,<3.0
 psycopg2-binary>=2.9,<3.0
 gunicorn>=21,<22

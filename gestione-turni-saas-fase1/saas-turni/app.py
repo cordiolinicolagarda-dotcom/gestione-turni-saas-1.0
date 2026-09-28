@@ -34,7 +34,8 @@ Deploy su Render: vedi README.md.
 """
 import json
 import os
-from datetime import datetime, timezone
+import secrets
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 
 from flask import (
@@ -59,16 +60,80 @@ PORT = int(os.environ.get("PORT", "5000"))
 # --- configurazione database -------------------------------------------------
 # In locale, se non è impostata nessuna DATABASE_URL, usa SQLite (zero setup).
 # In produzione (Render) DATABASE_URL viene fornita automaticamente collegando
-# un database Postgres al servizio. Render la espone come "postgres://...":
-# SQLAlchemy 2.x vuole "postgresql://...", quindi la normalizziamo.
-db_url = os.environ.get("DATABASE_URL", "sqlite:///" + os.path.join(BASE_DIR, "turni.db"))
-if db_url.startswith("postgres://"):
-    db_url = db_url.replace("postgres://", "postgresql://", 1)
+# un database Postgres al servizio.
+
+def driver_postgres_disponibile():
+    """Quale driver PostgreSQL è davvero installato in questo ambiente.
+
+    psycopg2 per primo perché è quello che mettiamo in requirements.txt; psycopg
+    (la versione 3) come alternativa, per chi installa quello.
+    """
+    import importlib.util
+    for nome in ("psycopg2", "psycopg"):
+        if importlib.util.find_spec(nome) is not None:
+            return nome
+    return None
+
+
+def normalizza_url_database(url):
+    """Rende esplicito lo schema e il driver dell'URL del database.
+
+    Due trappole, entrambe già costate un deploy fallito:
+
+    1. Render espone la connessione come "postgres://...", che SQLAlchemy non
+       riconosce più: va scritto "postgresql://...".
+
+    2. Da SQLAlchemy 2.1 "postgresql://" NON significa più psycopg2: il driver
+       predefinito è diventato psycopg (la versione 3). Con psycopg2 installato
+       e psycopg no, l'avvio muore con
+       "ModuleNotFoundError: No module named 'psycopg'" — un errore che parla di
+       un pacchetto che non abbiamo mai chiesto. Quindi il driver lo scegliamo
+       qui, fra quelli presenti davvero, invece di lasciarlo decidere alla
+       versione di SQLAlchemy che il giorno del deploy si trova installata.
+    """
+    if url.startswith("postgres://"):
+        url = "postgresql://" + url[len("postgres://"):]
+    # se il driver è già scritto a mano (postgresql+psycopg2://...) non si tocca
+    if url.startswith("postgresql://"):
+        driver = driver_postgres_disponibile()
+        if driver:
+            url = "postgresql+" + driver + "://" + url[len("postgresql://"):]
+    return url
+
+
+db_url = normalizza_url_database(
+    os.environ.get("DATABASE_URL", "sqlite:///" + os.path.join(BASE_DIR, "turni.db"))
+)
 
 app = Flask(__name__, static_folder=None, template_folder="templates")
 app.config["SQLALCHEMY_DATABASE_URI"] = db_url
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"pool_pre_ping": True}
-app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-cambiami-in-produzione")
+
+# In produzione siamo dietro il proxy di Render, che parla https con il browser e
+# http con noi. Senza questo, url_for(_external=True) genera link "http://" e i
+# cookie non possono essere marcati Secure.
+IN_PRODUZIONE = bool(os.environ.get("RENDER") or db_url.startswith("postgresql"))
+if IN_PRODUZIONE:
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+    app.config["PREFERRED_URL_SCHEME"] = "https"
+    app.config["SESSION_COOKIE_SECURE"] = True
+    app.config["REMEMBER_COOKIE_SECURE"] = True
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["REMEMBER_COOKIE_HTTPONLY"] = True
+app.config["REMEMBER_COOKIE_SAMESITE"] = "Lax"
+
+# La chiave firma i cookie di sessione: se resta quella scritta nel repository,
+# chiunque legga il codice può forgiare un cookie ed entrare come qualsiasi
+# titolare. In produzione non la usiamo mai: si genera una chiave casuale e si
+# grida nei log. Il prezzo è che a ogni riavvio tutti devono rientrare — meglio
+# di un portone aperto, e si risolve impostando SECRET_KEY su Render.
+_chiave = os.environ.get("SECRET_KEY")
+SECRET_KEY_MANCANTE = not _chiave
+if not _chiave:
+    _chiave = "dev-secret-cambiami-in-produzione" if not IN_PRODUZIONE else secrets.token_urlsafe(48)
+app.secret_key = _chiave
 
 db = SQLAlchemy(app)
 
@@ -123,9 +188,34 @@ class Utente(db.Model, UserMixin):
     ruolo = db.Column(db.String(20), nullable=False, default="titolare")
     locale_id = db.Column(db.Integer, db.ForeignKey("locali.id"), nullable=True)
     creato_il = db.Column(db.DateTime, default=now_utc)
+    # Invito: finché token_attivazione è valorizzato l'account esiste ma non si può
+    # usare. La password_hash resta NOT NULL (contiene un valore casuale che nessuno
+    # conosce) perché cambiare la nullabilità di una colonna su un database già in
+    # produzione è il tipo di migrazione che può lasciare l'app a metà.
+    token_attivazione = db.Column(db.String(64), index=True)
+    invitato_il = db.Column(db.String(40))
+    attivato_il = db.Column(db.String(40))
+    # Contatore delle sessioni valide. Finisce dentro l'identificativo firmato nel
+    # cookie: incrementarlo fa scadere di colpo tutti i cookie già emessi per questo
+    # utente. Senza, un "ricordami" rubato resterebbe valido per un anno anche dopo
+    # aver cambiato la password, e reimpostare la password non servirebbe a niente.
+    sessione = db.Column(db.Integer, nullable=False, default=1)
+
+    @property
+    def in_attesa(self):
+        return bool(self.token_attivazione)
+
+    def get_id(self):
+        return "%d|%d" % (self.id, self.sessione or 1)
+
+    def invalida_sessioni(self):
+        self.sessione = (self.sessione or 1) + 1
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
+        # cambiare password significa "da adesso vale solo questa": i cookie
+        # emessi prima non devono più aprire niente
+        self.invalida_sessioni()
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
@@ -152,7 +242,25 @@ class AppState(db.Model):
 
 @login_manager.user_loader
 def load_user(user_id):
-    return db.session.get(Utente, int(user_id))
+    """Legge l'identificativo "<id>|<sessione>" scritto nel cookie. Un cookie con un
+    contatore diverso da quello sul database è vecchio e non vale più. I cookie del
+    formato precedente (solo l'id) vengono rifiutati: chi ce li ha rientra una volta."""
+    testo = str(user_id or "")
+    if "|" not in testo:
+        return None
+    pezzi = testo.split("|", 1)
+    try:
+        uid, sess = int(pezzi[0]), int(pezzi[1])
+    except ValueError:
+        return None
+    utente = db.session.get(Utente, uid)
+    if not utente or (utente.sessione or 1) != sess:
+        return None
+    # un account invitato e non ancora attivato non deve poter navigare: l'unica
+    # rotta che lo logga volutamente è /attiva, che il token lo azzera prima
+    if utente.in_attesa:
+        return None
+    return utente
 
 
 # --- locale corrente e permessi ---------------------------------------------
@@ -210,11 +318,17 @@ def login():
         email = (request.form.get("email") or "").strip().lower()
         password = request.form.get("password") or ""
         utente = Utente.query.filter_by(email=email).first()
-        if utente and utente.check_password(password):
+        if utente and utente.in_attesa and utente.check_password(password):
+            # solo a chi indovina la password diciamo che l'account esiste ma non è
+            # attivato: dirlo a chiunque trasformerebbe questa pagina in un elenco di
+            # account con l'invito mai aperto, cioè i più facili da prendere
+            error = "Questo accesso non è ancora stato attivato: apri il link di attivazione che ti è stato inviato."
+        elif utente and not utente.in_attesa and utente.check_password(password):
             login_user(utente, remember=True)
             session.pop("locale_id", None)
             return redirect(url_for("index"))
-        error = "Email o password non corrette."
+        else:
+            error = "Email o password non corrette."
     return render_template("login.html", error=error)
 
 
@@ -342,7 +456,11 @@ def elimina_utente(utente_id):
     # chi è vincolato a un locale gestisce solo gli accessi di quel locale
     if current_user.locale_id and u.locale_id != current_user.locale_id:
         return jsonify({"error": "utente non trovato"}), 404
-    titolari = Utente.query.filter_by(azienda_id=current_user.azienda_id, ruolo="titolare").count()
+    # si contano solo i titolari che possono davvero entrare: un titolare con
+    # l'invito ancora da aprire non è una rete di sicurezza, e se l'invito scade
+    # l'organizzazione resta chiusa fuori
+    titolari = Utente.query.filter_by(azienda_id=current_user.azienda_id, ruolo="titolare").filter(
+        Utente.token_attivazione.is_(None)).count()
     if u.ruolo == "titolare" and titolari <= 1:
         return jsonify({"error": "deve restare almeno un titolare"}), 400
     db.session.delete(u)
@@ -471,7 +589,7 @@ def setup_tenant(token):
 
 def _admin_check(token):
     expected = os.environ.get("ADMIN_TOKEN")
-    if not expected or token != expected:
+    if not expected or not secrets.compare_digest(str(token), str(expected)):
         abort(404)
 
 
@@ -503,20 +621,213 @@ def admin_panel(token):
                  if l.id in stati and stati[l.id].aggiornato_il is not None] or [None]
             ),
         })
-    return render_template("admin.html", token=token, righe=righe)
+    return render_template(
+        "admin.html", token=token, righe=righe,
+        # il link contiene un token: in querystring finirebbe nei log delle richieste
+        # di Render, sulla stessa riga del token del pannello. Passa dalla sessione e
+        # si consuma alla prima lettura.
+        invito=session.pop("ultimo_invito", None),
+        esito=session.pop("ultimo_esito", None),
+        errore=session.pop("ultimo_errore", None),
+        smtp_attivo=bool(os.environ.get("SMTP_HOST")),
+        giorni_invito=GIORNI_VALIDITA_INVITO,
+    )
 
 
-@app.route("/admin/<token>/accedi-come/<int:azienda_id>")
+@app.route("/admin/<token>/accedi-come/<int:azienda_id>", methods=["POST"])
 def admin_impersonate(token, azienda_id):
+    """Entra come il cliente. Deve essere POST: come link, un prefetch del browser o
+    uno scanner aprirebbe la sessione senza che nessuno abbia cliccato."""
     _admin_check(token)
-    utente = Utente.query.filter_by(azienda_id=azienda_id, ruolo="titolare").order_by(Utente.id).first()
+    # solo account già attivati: quelli in attesa non superano load_user, e l'admin
+    # si troverebbe rispedito al login senza capire perché
+    attivi = Utente.query.filter_by(azienda_id=azienda_id).filter(
+        Utente.token_attivazione.is_(None)).order_by(Utente.id)
+    utente = attivi.filter_by(ruolo="titolare").first() or attivi.first()
     if not utente:
-        utente = Utente.query.filter_by(azienda_id=azienda_id).order_by(Utente.id).first()
-    if not utente:
-        abort(404)
+        session["ultimo_errore"] = ("Questa attività non ha ancora nessun accesso attivato: "
+                                    "finché la persona non apre il link di attivazione e sceglie la password, "
+                                    "non c'è un utente con cui entrare.")
+        return redirect(url_for("admin_panel", token=token))
     login_user(utente, remember=False)
     session.pop("locale_id", None)
     return redirect(url_for("index"))
+
+
+GIORNI_VALIDITA_INVITO = 14
+
+
+def _nuovo_token_invito():
+    return secrets.token_urlsafe(32)
+
+
+def _invito_scaduto(utente):
+    """In dubbio si risponde "scaduto": un controllo di scadenza che sbaglia in
+    apertura lascia un token valido per sempre. Rifare il link costa un clic."""
+    if not utente.invitato_il:
+        return True
+    try:
+        quando = datetime.fromisoformat(utente.invitato_il)
+    except ValueError:
+        return True
+    if quando.tzinfo is None:
+        quando = quando.replace(tzinfo=timezone.utc)
+    return now_utc() - quando > timedelta(days=GIORNI_VALIDITA_INVITO)
+
+
+def _link_attivazione(utente):
+    return url_for("attiva_account", token=utente.token_attivazione, _external=True)
+
+
+def _invia_invito(destinatario, link, nome_attivita):
+    """Manda l'email dell'invito, se e solo se l'SMTP è configurato.
+
+    Il link viene comunque sempre mostrato nel pannello: se la posta non parte
+    (server non configurato, credenziali sbagliate, destinatario che rifiuta)
+    l'invito non deve andare perso. Ritorna (inviata, motivo).
+    """
+    host = os.environ.get("SMTP_HOST")
+    if not host:
+        return False, "SMTP non configurato: copia il link e mandalo tu."
+    try:
+        import smtplib
+        from email.message import EmailMessage
+        porta = int(os.environ.get("SMTP_PORT", "587"))
+        mittente = os.environ.get("MAIL_FROM") or os.environ.get("SMTP_USER") or "no-reply@localhost"
+        msg = EmailMessage()
+        msg["Subject"] = "Attiva il tuo accesso a Gestione turni"
+        msg["From"] = mittente
+        msg["To"] = destinatario
+        msg.set_content(
+            "Ciao,\n\n"
+            f"è stato creato per te l'accesso a Gestione turni ({nome_attivita}).\n"
+            "Apri questo link per scegliere la tua password e cominciare:\n\n"
+            f"{link}\n\n"
+            f"Il link resta valido {GIORNI_VALIDITA_INVITO} giorni.\n"
+        )
+        with smtplib.SMTP(host, porta, timeout=15) as smtp:
+            smtp.starttls()
+            utente_smtp = os.environ.get("SMTP_USER")
+            if utente_smtp:
+                smtp.login(utente_smtp, os.environ.get("SMTP_PASSWORD", ""))
+            smtp.send_message(msg)
+        return True, None
+    except Exception as exc:   # la posta non deve mai far fallire l'invito
+        return False, f"Invio email non riuscito ({exc}). Copia il link e mandalo tu."
+
+
+@app.route("/admin/<token>/invita", methods=["POST"])
+def admin_invita(token):
+    """Crea un nuovo portale (organizzazione + primo locale + titolare) e
+    restituisce il link di attivazione da mandare alla persona."""
+    _admin_check(token)
+    email = (request.form.get("email") or "").strip().lower()
+    nome = (request.form.get("nome") or "").strip()
+    if not email or "@" not in email:
+        session["ultimo_errore"] = "Indirizzo email non valido."
+        return redirect(url_for("admin_panel", token=token))
+    if not nome:
+        nome = email.split("@")[0]
+    esistente = Utente.query.filter_by(email=email).first()
+    if esistente:
+        session["ultimo_errore"] = (
+            "Questa email è già usata da un accesso esistente"
+            + (" (attività: " + (db.session.get(Azienda, esistente.azienda_id).nome
+                                 if db.session.get(Azienda, esistente.azienda_id) else "—") + ")")
+            + ". Ogni indirizzo può appartenere a un solo accesso: usa un'altra email, "
+              "oppure — se è la stessa persona che deve rientrare — premi “rifai il link” "
+              "sulla riga della sua attività qui sotto.")
+        return redirect(url_for("admin_panel", token=token))
+
+    azienda = Azienda(nome=nome, email=email)
+    db.session.add(azienda)
+    db.session.flush()
+    db.session.add(Locale(azienda_id=azienda.id, nome=nome, attivo=True))
+    utente = Utente(azienda_id=azienda.id, email=email, ruolo="titolare", locale_id=None)
+    # password casuale che nessuno conosce: serve solo a tenere la colonna piena
+    # finché la persona non sceglie la sua durante l'attivazione
+    utente.set_password(secrets.token_urlsafe(32))
+    utente.token_attivazione = _nuovo_token_invito()
+    utente.invitato_il = now_utc().isoformat()
+    db.session.add(utente)
+    try:
+        db.session.commit()
+    except Exception:
+        # due creazioni contemporanee sulla stessa email: meglio il messaggio già
+        # scritto sopra che un 500 nudo, e niente mezza azienda in giro
+        db.session.rollback()
+        session["ultimo_errore"] = ("Non è stato possibile creare questo accesso: probabilmente "
+                                    "l'email è già stata usata in questo momento. Riprova.")
+        return redirect(url_for("admin_panel", token=token))
+
+    link = _link_attivazione(utente)
+    inviata, motivo = _invia_invito(email, link, nome)
+    session["ultimo_invito"] = link
+    session["ultimo_esito"] = ("Email inviata a " + email) if inviata else motivo
+    return redirect(url_for("admin_panel", token=token))
+
+
+@app.route("/admin/<token>/rigenera-invito/<int:utente_id>", methods=["POST"])
+def admin_rigenera_invito(token, utente_id):
+    """Rifà il link: per un invito scaduto o perso, oppure come reimpostazione della
+    password di chi ha già attivato e non riesce più a entrare. Sono due cose diverse e
+    il modulo deve dire quale intende, perché la seconda **revoca la password attuale**:
+    farlo per sbaglio su un account funzionante chiude fuori il cliente."""
+    _admin_check(token)
+    utente = db.session.get(Utente, utente_id)
+    if not utente:
+        abort(404)
+    reimposta = (request.form.get("reimposta") == "1")
+    if not utente.in_attesa and not reimposta:
+        # la persona ha attivato mentre il pannello era aperto: non le si tolgono
+        # le chiavi di casa per una pagina non aggiornata
+        session["ultimo_errore"] = (
+            utente.email + " ha già attivato il suo accesso, quindi non serve nessun link. "
+            "Se non riesce a entrare, usa “reimposta la password”: quello sì rifà il link, "
+            "ma la password attuale smette di funzionare.")
+        return redirect(url_for("admin_panel", token=token))
+
+    utente.token_attivazione = _nuovo_token_invito()
+    utente.invitato_il = now_utc().isoformat()
+    utente.attivato_il = None
+    # i cookie "ricordami" già in circolazione per questo account non devono
+    # sopravvivere a una reimpostazione della password
+    utente.invalida_sessioni()
+    db.session.commit()
+    link = _link_attivazione(utente)
+    inviata, motivo = _invia_invito(utente.email, link, utente.email)
+    session["ultimo_invito"] = link
+    session["ultimo_esito"] = ("Email inviata a " + utente.email) if inviata else motivo
+    return redirect(url_for("admin_panel", token=token))
+
+
+@app.route("/attiva/<token>", methods=["GET", "POST"])
+def attiva_account(token):
+    """La persona sceglie la sua password e entra per la prima volta."""
+    utente = Utente.query.filter_by(token_attivazione=token).first()
+    if not utente:
+        return render_template("attiva.html", stato="non_valido"), 404
+    if _invito_scaduto(utente):
+        return render_template("attiva.html", stato="scaduto", email=utente.email), 410
+
+    errore = None
+    if request.method == "POST":
+        pw1 = request.form.get("password") or ""
+        pw2 = request.form.get("password2") or ""
+        if len(pw1) < 8:
+            errore = "La password deve avere almeno 8 caratteri."
+        elif pw1 != pw2:
+            errore = "Le due password non coincidono."
+        else:
+            utente.set_password(pw1)
+            utente.token_attivazione = None
+            utente.attivato_il = now_utc().isoformat()
+            db.session.commit()
+            login_user(utente, remember=True)
+            session.pop("locale_id", None)
+            # il frontend legge questo parametro e apre la procedura guidata
+            return redirect(url_for("index") + "?benvenuto=1")
+    return render_template("attiva.html", stato="ok", email=utente.email, errore=errore)
 
 
 @app.route("/admin/<token>/elimina/<int:azienda_id>", methods=["POST"])
@@ -593,6 +904,14 @@ def _leggi_sql(sql, params=None):
 
 
 with app.app_context():
+    # una riga sola nei log, ma è la prima cosa da guardare quando l'avvio fallisce:
+    # dice con quale motore e con quale driver ci si sta collegando davvero
+    print("Database: %s (driver: %s)" % (db.engine.dialect.name, db.engine.dialect.driver))
+    print("Configurazione: SECRET_KEY=%s ADMIN_TOKEN=%s SMTP_HOST=%s produzione=%s" % (
+        "assente (generata a caso: tutti dovranno rientrare a ogni riavvio)" if SECRET_KEY_MANCANTE else "impostata",
+        "impostata" if os.environ.get("ADMIN_TOKEN") else "ASSENTE (il pannello admin risponde 404)",
+        "impostato" if os.environ.get("SMTP_HOST") else "assente (gli inviti si copiano a mano)",
+        IN_PRODUZIONE))
     db.create_all()
     # porta i dati dei clienti già attivi al nuovo modello (idempotente)
     try:
